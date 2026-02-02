@@ -1,5 +1,5 @@
 import { ClerkProvider } from '@clerk/clerk-react';
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
