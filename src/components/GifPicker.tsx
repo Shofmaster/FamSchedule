@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { Attachment } from '../store/useAppStore.ts'
 
-const GIPHY_API_KEY = import.meta.env.VITE_GIPHY_API_KEY || 'b5MfEMnkfbCxPsEJMG5FiVEOdHEXG7oZ'
+const GIPHY_API_KEY = import.meta.env.VITE_GIPHY_API_KEY
 
 interface GifResult {
   id: string
@@ -11,8 +11,9 @@ interface GifResult {
 }
 
 async function fetchGifs(endpoint: string, params: Record<string, string>): Promise<GifResult[]> {
-  const query = new URLSearchParams({ api_key: GIPHY_API_KEY, limit: '20', ...params })
+  const query = new URLSearchParams({ api_key: GIPHY_API_KEY || '', limit: '20', ...params })
   const res = await fetch(`https://api.giphy.com/v1/gifs/${endpoint}?${query}`)
+  if (!res.ok) throw new Error(`Giphy returned ${res.status}`)
   const json = await res.json()
   return (json.data || []).map((g: any) => ({
     id: g.id,
@@ -31,32 +32,46 @@ export default function GifPicker({ onSelect, onClose }: GifPickerProps) {
   const [query, setQuery] = useState('')
   const [gifs, setGifs] = useState<GifResult[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const keyMissing = !GIPHY_API_KEY
 
   // Load trending on mount
   useEffect(() => {
+    if (keyMissing) return
     fetchGifs('trending', {}).then((results) => {
       setGifs(results)
       setLoading(false)
-    }).catch(() => setLoading(false))
-  }, [])
+    }).catch(() => {
+      setError('Could not load GIFs — check your API key or network connection.')
+      setLoading(false)
+    })
+  }, [keyMissing])
 
   // Debounced search
   useEffect(() => {
+    if (keyMissing) return
     if (debounce.current) clearTimeout(debounce.current)
     if (!query.trim()) {
-      fetchGifs('trending', {}).then(setGifs).catch(() => {})
+      fetchGifs('trending', {}).then(setGifs).catch(() => {
+        setError('Could not load GIFs — check your API key or network connection.')
+      })
       return
     }
     setLoading(true)
+    setError(null)
     debounce.current = setTimeout(() => {
       fetchGifs('search', { q: query }).then((results) => {
         setGifs(results)
         setLoading(false)
-      }).catch(() => setLoading(false))
+      }).catch(() => {
+        setError('Could not load GIFs — check your API key or network connection.')
+        setLoading(false)
+      })
     }, 300)
     return () => { if (debounce.current) clearTimeout(debounce.current) }
-  }, [query])
+  }, [query, keyMissing])
 
   const handleSelect = (gif: GifResult) => {
     onSelect({
@@ -83,9 +98,11 @@ export default function GifPicker({ onSelect, onClose }: GifPickerProps) {
 
       {/* Grid */}
       <div className="overflow-y-auto p-2" style={{ maxHeight: 300 }}>
-        {loading && <p className="text-xs text-gray-400 text-center py-4">Loading...</p>}
-        {!loading && gifs.length === 0 && <p className="text-xs text-gray-400 text-center py-4">No GIFs found</p>}
-        {!loading && gifs.length > 0 && (
+        {keyMissing && <p className="text-xs text-gray-500 text-center py-4">GIF search is not configured. Add VITE_GIPHY_API_KEY to your .env.local file.</p>}
+        {!keyMissing && error && <p className="text-xs text-red-500 text-center py-4">{error}</p>}
+        {!keyMissing && !error && loading && <p className="text-xs text-gray-400 text-center py-4">Loading...</p>}
+        {!keyMissing && !error && !loading && gifs.length === 0 && <p className="text-xs text-gray-400 text-center py-4">No GIFs found</p>}
+        {!keyMissing && !error && !loading && gifs.length > 0 && (
           <div className="grid grid-cols-4 gap-1.5">
             {gifs.map((gif) => (
               <button
