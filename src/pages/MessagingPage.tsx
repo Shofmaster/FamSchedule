@@ -4,13 +4,6 @@ import useAppStore from '../store/useAppStore.ts'
 import type { Conversation, Attachment } from '../store/useAppStore.ts'
 import GifPicker from '../components/GifPicker.tsx'
 
-const MOCK_REPLIES: Record<string, string[]> = {
-  'friend-sarah': ['Sounds good to me!', 'Let me check on that.', 'That works for sure!', 'Sure, when should we meet?', 'Ha, yeah okay.'],
-  'friend-dad': ['Got it.', 'Sounds like a plan.', 'Sure thing.', "I'll let you know.", 'Okay, sounds good.'],
-  'friend-jake': ['Nice!', 'Definitely down for that.', 'Yeah for sure.', 'Works for me.', "Let's do it."],
-  'friend-mia': ['Oh that sounds fun!', 'Sure thing!', 'Totally agree.', 'Yes!', "I'm in."],
-}
-
 const AVATAR_COLORS = [
   'bg-orange-100 text-orange-600',
   'bg-blue-100 text-blue-600',
@@ -84,18 +77,14 @@ export default function MessagingPage() {
   const friends = useAppStore((s) => s.friends)
   const groups = useAppStore((s) => s.groups)
   const sendMessage = useAppStore((s) => s.sendMessage)
-  const addMessage = useAppStore((s) => s.addMessage)
   const markConversationRead = useAppStore((s) => s.markConversationRead)
   const createConversation = useAppStore((s) => s.createConversation)
 
   const [activeId, setActiveId] = useState<string | null>(null)
   const [input, setInput] = useState('')
   const [showNewMessage, setShowNewMessage] = useState(false)
-  const [typingConvId, setTypingConvId] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const replyTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fileMapRef = useRef<Map<string, File>>(new Map())
@@ -107,18 +96,11 @@ export default function MessagingPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [activeConversation?.messages.length, typingConvId])
+  }, [activeConversation?.messages.length])
 
   useEffect(() => {
     if (activeId) markConversationRead(activeId)
   }, [activeId, markConversationRead])
-
-  useEffect(() => {
-    return () => {
-      if (typingTimeout.current) clearTimeout(typingTimeout.current)
-      if (replyTimeout.current) clearTimeout(replyTimeout.current)
-    }
-  }, [])
 
   useEffect(() => {
     if (activeId) inputRef.current?.focus()
@@ -149,9 +131,6 @@ export default function MessagingPage() {
   const handleSend = async () => {
     if (!input.trim() && pendingAttachments.length === 0) return
     if (!activeId) return
-    if (typingTimeout.current) clearTimeout(typingTimeout.current)
-    if (replyTimeout.current) clearTimeout(replyTimeout.current)
-    setTypingConvId(null)
 
     const content = input.trim()
 
@@ -176,30 +155,6 @@ export default function MessagingPage() {
     setPendingAttachments([])
     setShowGifPicker(false)
     sendMessage(activeId, content, uploaded.length > 0 ? uploaded : undefined)
-
-    const conv = conversations.find((c) => c.id === activeId)
-    if (!conv || conv.participantIds.length === 0) return
-
-    const replier = conv.participantIds[Math.floor(Math.random() * conv.participantIds.length)]
-    const replies = MOCK_REPLIES[replier]
-    if (!replies) return
-    const friend = friends.find((f) => f.id === replier)
-    if (!friend) return
-
-    const replyContent = replies[Math.floor(Math.random() * replies.length)]
-    const convId = activeId
-
-    typingTimeout.current = setTimeout(() => setTypingConvId(convId), 800)
-    replyTimeout.current = setTimeout(() => {
-      setTypingConvId(null)
-      addMessage(convId, {
-        id: `auto-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        senderId: replier,
-        senderName: friend.name,
-        content: replyContent,
-        createdAt: new Date(),
-      })
-    }, 2500)
   }
 
   const handleNewConversation = (type: 'dm' | 'group', referenceId: string) => {
@@ -368,18 +323,6 @@ export default function MessagingPage() {
                 })()}
               </div>
 
-              {/* Typing indicator */}
-              {typingConvId === activeId && (
-                <div className="flex justify-start mt-3">
-                  <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-                    <div className="flex items-center gap-1">
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                  </div>
-                </div>
-              )}
               <div ref={messagesEndRef} />
             </div>
 
