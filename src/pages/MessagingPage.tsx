@@ -77,6 +77,7 @@ export default function MessagingPage() {
   const friends = useAppStore((s) => s.friends)
   const groups = useAppStore((s) => s.groups)
   const sendMessage = useAppStore((s) => s.sendMessage)
+  const deleteMessage = useAppStore((s) => s.deleteMessage)
   const markConversationRead = useAppStore((s) => s.markConversationRead)
   const createConversation = useAppStore((s) => s.createConversation)
 
@@ -295,7 +296,18 @@ export default function MessagingPage() {
                           </div>
                         )}
                         {showName && <p className="text-xs text-gray-500 ml-1 mb-1">{msg.senderName}</p>}
-                        <div className={`flex ${isYou ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`flex ${isYou ? 'justify-end' : 'justify-start'} group`}>
+                          {isYou && (
+                            <button
+                              type="button"
+                              onClick={() => deleteMessage(activeId!, msg.id)}
+                              className="self-start mt-0.5 mr-1.5 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded-full bg-gray-200 hover:bg-red-100 text-gray-400 hover:text-red-500 flex items-center justify-center cursor-pointer"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
                           <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isYou ? 'bg-orange-500 text-white rounded-tr-sm' : 'bg-white shadow-sm text-gray-900 rounded-tl-sm'}`}>
                             {msg.content && <p className="text-sm leading-relaxed">{msg.content}</p>}
                             {msg.attachments && msg.attachments.length > 0 && (

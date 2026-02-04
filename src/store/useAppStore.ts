@@ -112,6 +112,7 @@ interface AppState {
   conversations: Conversation[]
   sendMessage: (conversationId: string, content: string, attachments?: Attachment[]) => void
   addMessage: (conversationId: string, message: Message) => void
+  deleteMessage: (conversationId: string, messageId: string) => void
   markConversationRead: (id: string) => void
   createConversation: (type: 'dm' | 'group', name: string, participantIds: string[]) => string
 }
@@ -231,6 +232,12 @@ const useAppStore = create<AppState>()(persist((set) => ({
     set((state) => ({
       conversations: state.conversations.map((c) =>
         c.id === conversationId ? { ...c, messages: [...c.messages, message] } : c
+      ),
+    })),
+  deleteMessage: (conversationId, messageId) =>
+    set((state) => ({
+      conversations: state.conversations.map((c) =>
+        c.id === conversationId ? { ...c, messages: c.messages.filter((m) => m.id !== messageId) } : c
       ),
     })),
   markConversationRead: (id) =>
