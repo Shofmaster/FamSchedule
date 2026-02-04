@@ -1,0 +1,317 @@
+import { useState } from 'react'
+import useAppStore from '../store/useAppStore.ts'
+import type { CalendarEvent } from '../data/mockEvents.ts'
+
+const COLORS = ['#F97316', '#FDBA74', '#3B82F6', '#10B981', '#8B5CF6', '#EF4444', '#6B7280', '#EC4899']
+
+interface CreateEventModalProps {
+  initialDate: Date
+  existingEvent?: CalendarEvent
+  onClose: () => void
+  onSubmit: (event: CalendarEvent, pushToGoogle: boolean) => void
+}
+
+function toDateString(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function formatTimeInput(d: Date): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+function addHour(d: Date): Date {
+  const out = new Date(d)
+  out.setHours(out.getHours() + 1)
+  return out
+}
+
+export default function CreateEventModal({ initialDate, existingEvent, onClose, onSubmit }: CreateEventModalProps) {
+  const friends = useAppStore((s) => s.friends)
+  const googleCalendar = useAppStore((s) => s.googleCalendar)
+  const isEditing = !!existingEvent
+
+  const [title, setTitle] = useState(existingEvent?.title ?? '')
+  const [date, setDate] = useState(existingEvent ? toDateString(existingEvent.start) : toDateString(initialDate))
+  const [allDay, setAllDay] = useState(existingEvent?.allDay ?? false)
+  const [startTime, setStartTime] = useState(existingEvent ? formatTimeInput(existingEvent.start) : formatTimeInput(initialDate))
+  const [endTime, setEndTime] = useState(existingEvent ? formatTimeInput(existingEvent.end) : formatTimeInput(addHour(initialDate)))
+  const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'>(existingEvent?.recurrence ?? 'none')
+  const [recurrenceCustom, setRecurrenceCustom] = useState(existingEvent?.recurrenceCustom ?? '')
+  const [importance, setImportance] = useState<'low' | 'medium' | 'high'>(existingEvent?.importance ?? 'medium')
+  const [guestIds, setGuestIds] = useState<string[]>(existingEvent?.guestIds ?? [])
+  const [guestFilter, setGuestFilter] = useState('')
+  const [description, setDescription] = useState(existingEvent?.description ?? '')
+  const [location, setLocation] = useState(existingEvent?.location ?? '')
+  const [color, setColor] = useState(existingEvent?.color ?? '#F97316')
+  const [pushToGoogle, setPushToGoogle] = useState(!isEditing)
+
+  const filteredFriends = friends.filter(
+    (f) => !guestIds.includes(f.id) && f.name.toLowerCase().includes(guestFilter.toLowerCase()),
+  )
+
+  const handleStartChange = (newStart: string) => {
+    setStartTime(newStart)
+    if (newStart >= endTime) {
+      const [h, m] = newStart.split(':').map(Number)
+      const endH = (h + 1) % 24
+      setEndTime(`${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+    }
+  }
+
+  const handleSubmit = () => {
+    if (!title.trim()) return
+    const start = allDay ? new Date(`${date}T00:00:00`) : new Date(`${date}T${startTime}:00`)
+    const end = allDay ? new Date(`${date}T23:59:59`) : new Date(`${date}T${endTime}:00`)
+    const event: CalendarEvent = {
+      id: existingEvent?.id ?? `evt-${Date.now()}`,
+      title: title.trim(),
+      start,
+      end,
+      color,
+      source: 'local',
+      allDay,
+      recurrence,
+      recurrenceCustom: recurrence === 'custom' ? recurrenceCustom : undefined,
+      importance,
+      guestIds: guestIds.length > 0 ? guestIds : undefined,
+      description: description.trim() || undefined,
+      location: location.trim() || undefined,
+      googleEventId: existingEvent?.googleEventId,
+    }
+    onSubmit(event, pushToGoogle)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-lg font-bold text-gray-900 mb-4">{isEditing ? 'Edit Event' : 'Create Event'}</h2>
+        <div className="space-y-3">
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Event title"
+              autoFocus
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+            />
+          </div>
+
+          {/* Date + All-day toggle */}
+          <div className="flex items-end gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+            </div>
+            <label className="flex items-center gap-2 pb-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={allDay}
+                onChange={(e) => setAllDay(e.target.checked)}
+                className="rounded border-gray-300 accent-orange-500"
+              />
+              <span className="text-sm text-gray-600">All day</span>
+            </label>
+          </div>
+
+          {/* Start / End time — hidden when all-day */}
+          {!allDay && (
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start</label>
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => handleStartChange(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">End</label>
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Repeat */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Repeat</label>
+            <select
+              value={recurrence}
+              onChange={(e) => setRecurrence(e.target.value as typeof recurrence)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+            >
+              <option value="none">None</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+              <option value="custom">Custom</option>
+            </select>
+            {recurrence === 'custom' && (
+              <input
+                value={recurrenceCustom}
+                onChange={(e) => setRecurrenceCustom(e.target.value)}
+                placeholder="e.g. Every 2 weeks on Mon and Wed"
+                className="mt-2 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+            )}
+          </div>
+
+          {/* Importance — segmented control, matches ViewToggle pattern */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Importance</label>
+            <div className="flex bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              {(['low', 'medium', 'high'] as const).map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  onClick={() => setImportance(level)}
+                  className={`flex-1 px-4 py-2 text-sm font-medium capitalize transition-colors ${
+                    importance === level ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Guests — type-ahead multi-select */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Guests</label>
+            {guestIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {guestIds.map((id) => {
+                  const friend = friends.find((f) => f.id === id)
+                  return (
+                    <span key={id} className="inline-flex items-center gap-1 bg-orange-100 text-orange-700 text-xs font-medium px-2 py-1 rounded-full">
+                      {friend?.name}
+                      <button
+                        type="button"
+                        onClick={() => setGuestIds((prev) => prev.filter((g) => g !== id))}
+                        className="hover:text-orange-900 ml-0.5"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+            <input
+              value={guestFilter}
+              onChange={(e) => setGuestFilter(e.target.value)}
+              placeholder="Search guests..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+            />
+            {guestFilter && filteredFriends.length > 0 && (
+              <div className="mt-1 border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                {filteredFriends.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => {
+                      setGuestIds((prev) => [...prev, f.id])
+                      setGuestFilter('')
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-orange-50 transition-colors"
+                  >
+                    {f.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Add a description..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none"
+            />
+          </div>
+
+          {/* Location */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+            <input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Add a location..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+            />
+          </div>
+
+          {/* Color swatches */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+            <div className="flex gap-2 flex-wrap">
+              {COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  className="w-7 h-7 rounded-full transition-transform hover:scale-110"
+                  style={{
+                    backgroundColor: c,
+                    boxShadow: color === c ? `0 0 0 2px white, 0 0 0 4px ${c}` : undefined,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Push to Google Calendar — visible only when connected, defaults ON */}
+          {googleCalendar.isConnected && (
+            <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer select-none">
+              <div
+                onClick={() => setPushToGoogle((prev) => !prev)}
+                className={`relative w-10 h-5 rounded-full transition-colors ${pushToGoogle ? 'bg-orange-500' : 'bg-gray-300'}`}
+              >
+                <div
+                  className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                    pushToGoogle ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </div>
+              <span className="text-sm text-gray-700">Also add to Google Calendar</span>
+            </label>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 mt-6">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors">
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!title.trim()}
+            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
+          >
+            {isEditing ? 'Save Changes' : 'Create Event'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
