@@ -153,4 +153,51 @@ router.post('/events', async (req: Request, res: Response) => {
   res.json({ googleEventId: data.id || '' })
 })
 
+// PUT /api/google/events/:id — updates an existing event on Google Calendar
+router.put('/:id', async (req: Request, res: Response) => {
+  const oauth2Client = await getValidClient(req)
+  if (!oauth2Client) {
+    return res.status(401).json({ error: 'Not connected to Google Calendar' })
+  }
+
+  const { title, start, end, allDay, description, location, guests } = req.body as {
+    title: string
+    start: string
+    end: string
+    allDay?: boolean
+    description?: string
+    location?: string
+    guests?: string[]
+  }
+
+  const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+
+  const event: Record<string, unknown> = {
+    summary: title,
+    start: allDay ? { date: start.slice(0, 10) } : { dateTime: start },
+    end: allDay ? { date: end.slice(0, 10) } : { dateTime: end },
+  }
+  if (description) event.description = description
+  if (location) event.location = location
+  if (guests && guests.length > 0) event.guests = guests.map((email) => ({ email }))
+
+  await calendar.events.update({ calendarId: 'primary', eventId: req.params.id as string, requestBody: event as any })
+
+  res.json({ updated: true })
+})
+
+// DELETE /api/google/events/:id — removes an event from Google Calendar
+router.delete('/:id', async (req: Request, res: Response) => {
+  const oauth2Client = await getValidClient(req)
+  if (!oauth2Client) {
+    return res.status(401).json({ error: 'Not connected to Google Calendar' })
+  }
+
+  const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+
+  await calendar.events.delete({ calendarId: 'primary', eventId: req.params.id as string })
+
+  res.json({ deleted: true })
+})
+
 export default router
