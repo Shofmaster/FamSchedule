@@ -9,7 +9,7 @@ export default function GoogleCalendarButton({ isConnected }: GoogleCalendarButt
 
   const handleConnect = async () => {
     const { data } = await axios.get<{ url: string }>('/api/google/auth')
-    window.open(data.url, '_blank')
+    window.location.href = data.url
   }
 
   return (

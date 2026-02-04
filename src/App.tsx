@@ -5,6 +5,7 @@ import FriendsPage from './pages/FriendsPage.tsx'
 import GroupSyncPage from './pages/GroupSyncPage.tsx'
 import FamilySyncPage from './pages/FamilySyncPage.tsx'
 import AIPlannerPage from './pages/AIPlannerPage.tsx'
+import MessagingPage from './pages/MessagingPage.tsx'
 import AuthGuard from './components/AuthGuard.tsx'
 import AuthLayout from './components/AuthLayout.tsx'
 
@@ -20,6 +21,7 @@ export default function App() {
           <Route path="/group-sync" element={<GroupSyncPage />} />
           <Route path="/family-sync" element={<FamilySyncPage />} />
           <Route path="/ai-planner" element={<AIPlannerPage />} />
+          <Route path="/messages" element={<MessagingPage />} />
         </Route>
       </Route>
     </Routes>

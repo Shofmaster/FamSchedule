@@ -1,0 +1,347 @@
+================================================================================
+  RALPH LOOP — FamSchedule v1.1
+  Paste this entire file into Claude Code to run the implementation loop.
+  Usage:  cat .claude/ralph-loop.prompt
+================================================================================
+
+You are implementing FamSchedule v1.1. This prompt defines a RALPH loop —
+a structured iteration cycle you must complete for every stream before moving on.
+
+  R — Read       the spec and every file that will change
+  A — Analyze    what changes, what stays, what patterns to match
+  L — Leverage   existing code; write only what the plan calls for
+  P — Produce    run the build; fix any errors until it is clean
+  H — Hand off   log completion, then move to the next stream
+
+Read these two files in full before you touch any code:
+  - PRD.md
+  - .claude/plans/mossy-jingling-porcupine.md
+
+MAX ITERATIONS: 10
+  Each build-fix cycle inside a single stream counts as one iteration.
+  If iteration 10 is reached and errors remain, STOP.  Do not attempt further
+  fixes.  Report which stream failed, paste the final build output, and exit.
+
+--------------------------------------------------------------------------------
+STREAM ORDER — do not skip, do not reorder
+--------------------------------------------------------------------------------
+  1  Persistence
+  2  Tap-to-Create Event
+  3  Google Calendar Sync
+  4  Messaging Attachments + GIFs
+
+Run npm run build after every stream. Do not proceed to the next stream until
+the build is clean. Fix any errors in the same stream that introduced them.
+
+--------------------------------------------------------------------------------
+STREAM 1 — PERSISTENCE
+--------------------------------------------------------------------------------
+File to change:  src/store/useAppStore.ts
+
+What to do:
+  - Wrap the existing create() call with the persist middleware from
+    zustand/middleware.  Do not change any existing store logic.
+  - localStorage key: "famschedule-store"
+  - Persist ONLY these slices: friends, groups, localEvents, conversations,
+    syncProposals, textInvites, notifications, calendarView
+  - Do NOT persist googleCalendar (it is re-fetched on every mount).
+  - Implement onRehydrateStorage to walk the rehydrated state and convert
+    all Date-typed fields back from strings with new Date().
+    Fields that need rehydration:
+      Notification  → createdAt
+      CalendarEvent → start, end
+      SyncProposal  → suggestedStart, suggestedEnd
+      TextInvite    → sentAt
+      Message       → createdAt
+      GoogleCalendarState → lastSynced
+
+RALPH cycle:
+  R  Read useAppStore.ts and the plan section for Stream 4.
+  A  Identify every Date field in the store's initial state and types.
+  L  Add persist. Add the rehydration walk. Touch nothing else.
+  P  npm run build — must be clean.
+  H  Log: ">> Stream 1 — Persistence — DONE"
+
+--------------------------------------------------------------------------------
+STREAM 2 — TAP-TO-CREATE EVENT
+--------------------------------------------------------------------------------
+Files to change:
+  src/data/mockEvents.ts          (interface only)
+  src/components/CalendarGrid.tsx
+  src/pages/DashboardPage.tsx
+
+New file:
+  src/components/CreateEventModal.tsx
+
+What to do:
+
+  2a — CalendarEvent interface (mockEvents.ts)
+       Add these optional fields to the existing interface. Do not touch the
+       mock data array or any other code in the file:
+         allDay?: boolean
+         recurrence?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'
+         recurrenceCustom?: string
+         importance?: 'low' | 'medium' | 'high'
+         guestIds?: string[]
+         description?: string
+         location?: string
+         googleEventId?: string
+
+  2b — CalendarGrid click handlers
+       Add an onDayClick: (date: Date) => void prop to CalendarGrid and thread
+       it into each sub-view.
+       - MonthView:  onClick on each day-cell div.  Pass the day with hours set
+                     to 9:00 AM.
+       - DayView:    onClick on each hour-row background div.  The hour is
+                     already known from the loop index — set it on the date and
+                     pass it up.
+       - WeekView:   onClick on each of the 7 empty column divs inside every
+                     hour row.  Each already knows its day (from weekDays[j]) and
+                     its hour — set both and pass up.
+       Do not change rendering, sizing, or event-block positioning logic.
+
+  2c — CreateEventModal (new file)
+       Build the full creation form.  Follow the established modal pattern
+       exactly: fixed inset-0 overlay with bg-black/40, white rounded-2xl card,
+       max-w-lg (wider than other modals because of field count),
+       max-h-[90vh] overflow-y-auto for scroll.
+       Input styling: border border-gray-300 rounded-lg px-3 py-2 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-orange-300
+       Props: initialDate (Date), onClose, onSubmit (receives a CalendarEvent).
+
+       Form fields in this order:
+         1  Title — text input, required.  Submit button disabled while empty.
+         2  Date — <input type="date"> pre-filled from initialDate.
+            All-day toggle on the same row.  When on, hide the time fields.
+         3  Start / End time — <input type="time"> side by side.
+            Start defaults to the hour from initialDate (or 09:00 in month view).
+            End defaults to start + 1 h.
+            When start changes: if end <= start, set end = start + 1 h.
+         4  Repeat — <select>.  Options: None, Daily, Weekly, Monthly, Yearly,
+            Custom.  When Custom is selected, show a small text input below it
+            for a free-form description.
+         5  Importance — three pill buttons: Low / Medium / High.  Same
+            segmented-control styling as ViewToggle (orange when active, gray
+            otherwise).  Defaults to Medium.
+         6  Guests — type-ahead multi-select over the friends list from the
+            store.  Selected guests render as removable chips.  A friend cannot
+            be added twice.
+         7  Description — <textarea rows={3}>.
+         8  Location — text input.
+         9  Color — a row of 6-8 small circle swatches.  Selected swatch has a
+            visible ring.  Defaults to #F97316 (app orange).
+        10  "Also add to Google Calendar" toggle.  Visible ONLY when
+            googleCalendar.isConnected is true.  Defaults to ON.
+            Pass the toggle value up through onSubmit so DashboardPage can
+            act on it.
+
+       Footer: Cancel button + Create Event button (disabled until title
+       is non-empty).  Clicking the backdrop (overlay) calls onClose.
+
+  2d — DashboardPage wiring
+       - Add state: const [createEventDate, setCreateEventDate] = useState<Date | null>(null)
+       - Pass onDayClick={setCreateEventDate} to <CalendarGrid>
+       - Conditionally render <CreateEventModal> when createEventDate is not null.
+       - onClose: setCreateEventDate(null)
+       - onSubmit: call addLocalEvent with the event, then setCreateEventDate(null).
+         (The Google push toggle value will be wired in Stream 3.)
+
+RALPH cycle:
+  R  Read mockEvents.ts, CalendarGrid.tsx, DashboardPage.tsx, and the plan.
+  A  Note every existing pattern — modal overlay, input classes, button classes,
+     ViewToggle segmented style, store shape.
+  L  Implement 2a → 2b → 2c → 2d in order.
+  P  npm run build — must be clean.
+  H  Log: ">> Stream 2 — Tap-to-Create Event — DONE"
+
+--------------------------------------------------------------------------------
+STREAM 3 — GOOGLE CALENDAR SYNC
+--------------------------------------------------------------------------------
+File to change:  backend/routes/google.ts
+File to change:  src/pages/DashboardPage.tsx  (add push + dedup logic)
+
+What to do:
+
+  3a — OAuth scope upgrade
+       Change the scope array in the /auth route from
+         ['https://www.googleapis.com/auth/calendar.readonly']
+       to
+         ['https://www.googleapis.com/auth/calendar']
+
+  3b — Refresh-token capture
+       Change tokenStore from Map<string, string> to
+         Map<string, { access_token: string; refresh_token: string; expiry_date: number }>
+       In the /callback handler, store tokens.refresh_token and tokens.expiry_date
+       alongside the access token.
+
+  3c — Refresh logic (shared helper)
+       Extract a helper function (e.g. getValidClient) that:
+         - Reads the token record for the session
+         - If Date.now() > expiry_date, calls oauth2Client.refreshAccessToken()
+           and writes the new access_token + expiry_date back into tokenStore
+         - Returns an authenticated OAuth2 client
+       Use this helper in both GET /events and the new POST /events.
+
+  3d — POST /api/google/events endpoint
+       Body shape:
+         { title: string, start: string, end: string, allDay: boolean,
+           description?: string, location?: string, guests?: string[] }
+       - guests is an array of email addresses (the frontend resolves
+         Friend.id → Friend.email before sending).
+       - Call calendar.events.insert() with the mapped event object.
+         For all-day events, use date (YYYY-MM-DD) not dateTime.
+         For guests, map each email to { email }.
+       - Return JSON: { googleEventId: <the id from the inserted event> }
+       - Add a code comment noting that tokenStore is in-memory and will be
+         replaced with persistent storage in a future release.
+
+  3e — DashboardPage: push logic
+       The onSubmit handler from Stream 2 receives the event AND a
+       pushToGoogle boolean.  Wire it:
+         - If pushToGoogle && googleCalendar.isConnected:
+             POST to /api/google/events with the event fields.
+             Resolve guestIds to emails using the friends array from the store.
+             On success: set googleEventId on the event before calling addLocalEvent.
+             On failure: still call addLocalEvent (event created locally),
+               and push a failure notification into the store.
+         - If not: just call addLocalEvent as before.
+
+  3f — DashboardPage: dedup filter
+       Before passing allEvents to CalendarGrid, filter out any event where
+         event.source === 'google'  AND
+         localEvents.some(le => le.googleEventId === event.id)
+       This prevents a pushed event from appearing twice after the next sync.
+
+RALPH cycle:
+  R  Read backend/routes/google.ts and DashboardPage.tsx.
+  A  Trace the existing OAuth flow.  Note token usage in GET /events.
+  L  Implement 3a → 3b → 3c → 3d → 3e → 3f.
+  P  npm run build — must be clean.  (Note: the POST endpoint cannot be
+     integration-tested without real Google credentials; code correctness
+     is the bar here.)
+  H  Log: ">> Stream 3 — Google Calendar Sync — DONE"
+
+--------------------------------------------------------------------------------
+STREAM 4 — MESSAGING ATTACHMENTS + GIFs
+--------------------------------------------------------------------------------
+Files to change:
+  src/store/useAppStore.ts
+  src/pages/MessagingPage.tsx
+
+New file:
+  src/components/GifPicker.tsx
+
+What to do:
+
+  4a — Store: Attachment type + Message update
+       Add to useAppStore.ts (before the AppState interface):
+         export interface Attachment {
+           id: string
+           type: 'image' | 'gif' | 'file'
+           url: string
+           name: string
+           mimeType?: string
+         }
+       Add attachments?: Attachment[] to the Message interface.
+       Update sendMessage action signature to:
+         sendMessage: (conversationId: string, content: string, attachments?: Attachment[]) => void
+       Update the sendMessage implementation to spread attachments into the
+       new message object.  If undefined, omit the field (do not set to []).
+
+  4b — MessagingPage: input bar
+       Add local state: const [attachments, setAttachments] = useState<Attachment[]>([])
+       Add a hidden file input:
+         <input type="file" ref={fileInputRef} multiple
+                accept="image/*,.pdf,.doc,.docx,.txt"
+                onChange={handleFileSelect} className="hidden" />
+       handleFileSelect: for each selected file, create an Attachment with
+         id = crypto.randomUUID(), type based on MIME, url = URL.createObjectURL(file),
+         name = file.name, mimeType = file.type.  Append to attachments state.
+
+       Toolbar row (sits above or inside the input bar):
+         - Paperclip icon button: onClick triggers fileInputRef.current.click()
+         - GIF icon button: onClick toggles a showGifPicker boolean
+       Both buttons use the same icon-button style as the existing send button
+       (w-10 h-10 rounded-full, orange bg, white icon).  Use inline SVG icons
+       matching the app's existing SVG pattern.
+
+       Attachment preview strip (render between toolbar and text input, only
+       when attachments.length > 0):
+         - Horizontal flex row with gap, overflow-x-auto
+         - Each attachment: 64x64 container with rounded-lg.
+             Images/GIFs: <img src={att.url} className="w-16 h-16 object-cover rounded-lg" />
+             Files: a gray bg card with a generic file icon (SVG) and the filename
+                    truncated to ~12 chars.
+         - Each has an absolute-positioned "x" dismiss button that removes it
+           from state.
+
+       Update handleSend:
+         - Pass attachments to sendMessage as the third argument.
+         - After send, call setAttachments([]) to clear the strip.
+         - Also revoke image object URLs: attachments.forEach(a => { if (a.type !== 'gif') URL.revokeObjectURL(a.url) })
+
+  4c — MessagingPage: attachment rendering in bubbles
+       Inside the existing message map, after the <p> that renders msg.content,
+       add:
+         {msg.attachments && msg.attachments.length > 0 && (
+           <div className="mt-2 flex flex-wrap gap-1.5">
+             {msg.attachments.map(att => (
+               att.type === 'file'
+                 ? <file card with icon + truncated name>
+                 : <img src={att.url} className="max-w-[200px] max-h-[200px] object-cover rounded-lg" />
+             ))}
+           </div>
+         )}
+
+  4d — GifPicker component (new file)
+       Props: onSelect (receives an Attachment), onClose.
+       Layout: a panel (not a full-screen modal).  Positioned above the input
+       bar.  White bg, rounded-t-xl, shadow-lg, border-t.  ~320px tall max
+       with internal scroll.
+
+       Contents:
+         - Search input at top (same input styling as the rest of the app).
+           300 ms debounced onChange → fetch Giphy search endpoint.
+         - On mount (and when search is empty): fetch trending GIFs from
+           Giphy /gifs/trending endpoint.
+         - GIF grid: responsive grid (grid-cols-3 or 4).  Each cell is an <img>
+           using images.fixed.url from the Giphy response (fixed-size thumbnails
+           are smaller and faster than originals).  Rounded corners, cursor pointer,
+           hover brightness effect.
+         - Tapping a GIF calls onSelect with an Attachment:
+             { id: crypto.randomUUID(), type: 'gif', url: images.original.url,
+               name: title, mimeType: 'image/gif' }
+           then calls onClose.
+
+       API:
+         Base: https://api.giphy.com/v1/gifs
+         Key:  import.meta.env.VITE_GIPHY_API_KEY
+         Trending: GET /trending?api_key=KEY&limit=20
+         Search:   GET /search?api_key=KEY&q=QUERY&limit=20
+
+       Add a placeholder line to .env.local:
+         VITE_GIPHY_API_KEY=your_giphy_api_key_here
+
+  4e — Wire GifPicker into MessagingPage
+       When showGifPicker is true, render <GifPicker> above the input bar.
+       onSelect: append the returned Attachment to local attachments state,
+                 set showGifPicker = false.
+       onClose: set showGifPicker = false.
+
+RALPH cycle:
+  R  Read useAppStore.ts and MessagingPage.tsx in full.
+  A  Note the existing sendMessage shape, message bubble rendering, and
+     input-bar layout.  Note the auto-reply mock flow — attachments on
+     auto-replies are not needed; only real sent messages carry them.
+  L  Implement 4a → 4b → 4c → 4d → 4e.
+  P  npm run build — must be clean.
+  H  Log: ">> Stream 4 — Attachments + GIFs — DONE"
+
+--------------------------------------------------------------------------------
+FINAL
+--------------------------------------------------------------------------------
+Run npm run build one last time.
+Report:
+  - Build status (clean / errors)
+  - One sentence per stream summarizing what was delivered
+  - Any files you did NOT touch and why

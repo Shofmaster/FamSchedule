@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "mode": "no",
+    "allow": [
+      "Bash(npm install:*)"
+    ]
+  }
+}

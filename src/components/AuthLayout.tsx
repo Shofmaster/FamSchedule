@@ -1,7 +1,10 @@
 import { SignOutButton } from '@clerk/react'
 import { NavLink, Outlet } from 'react-router-dom'
+import useAppStore from '../store/useAppStore.ts'
 
 export default function AuthLayout() {
+  const totalUnread = useAppStore((s) => s.conversations.reduce((sum, c) => sum + c.unreadCount, 0))
+
   return (
     <div className="min-h-screen flex flex-col bg-orange-50">
       {/* Top navigation */}
@@ -41,6 +44,19 @@ export default function AuthLayout() {
                 }
               >
                 Family Sync
+              </NavLink>
+              <NavLink
+                to="/messages"
+                className={({ isActive }) =>
+                  `text-sm font-medium transition-colors flex items-center gap-1.5 ${isActive ? 'text-orange-500' : 'text-gray-600 hover:text-orange-500'}`
+                }
+              >
+                Messages
+                {totalUnread > 0 && (
+                  <span className="inline-flex items-center justify-center w-4 h-4 text-xs font-bold text-white bg-red-500 rounded-full">
+                    {totalUnread > 9 ? '9+' : totalUnread}
+                  </span>
+                )}
               </NavLink>
               <NavLink
                 to="/ai-planner"

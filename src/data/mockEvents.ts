@@ -5,6 +5,14 @@ export interface CalendarEvent {
   end: Date
   color: string
   source: 'local' | 'google'
+  allDay?: boolean
+  recurrence?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'
+  recurrenceCustom?: string
+  importance?: 'low' | 'medium' | 'high'
+  guestIds?: string[]
+  description?: string
+  location?: string
+  googleEventId?: string
 }
 
 function weekday(dayOffset: number, hour: number, minute = 0): Date {

@@ -12,6 +12,7 @@ export default function AddPersonModal({ onClose }: AddPersonModalProps) {
   const updateGroup = useAppStore((s) => s.updateGroup)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [groupType, setGroupType] = useState<'family' | 'friends'>('family')
   const [priority, setPriority] = useState(1)
   const [assignedGroupId, setAssignedGroupId] = useState('')
@@ -21,7 +22,7 @@ export default function AddPersonModal({ onClose }: AddPersonModalProps) {
   const handleSubmit = () => {
     if (!name.trim()) return
     const id = `friend-${Date.now()}`
-    addFriend({ id, name: name.trim(), email: email.trim(), groupType, priority })
+    addFriend({ id, name: name.trim(), email: email.trim(), phone: phone.trim() || undefined, groupType, priority })
     if (assignedGroupId) {
       const group = groups.find((g) => g.id === assignedGroupId)
       if (group) {
@@ -51,6 +52,15 @@ export default function AddPersonModal({ onClose }: AddPersonModalProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="sarah@example.com"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone (optional)</label>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="(555) 123-4567"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
             />
           </div>
