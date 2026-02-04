@@ -1,0 +1,44 @@
+# Ralph Progress Log
+Started: 2026-02-04 — v1.3 cleanup-and-fixes
+---
+
+## Codebase Patterns
+- verbatimModuleSyntax is ON — use `import type` for ALL type-only imports (e.g. `import type { CalendarEvent } from '../data/mockEvents.ts'`)
+- noUnusedLocals + noUnusedParameters are ON — zero unused variables or parameters allowed anywhere in the codebase
+- Zustand store actions are defined inline inside the create()(persist((set) => ({ ... }))) call in src/store/useAppStore.ts. Follow the existing patterns exactly:
+  - update action: (id, updates) => set((state) => ({ items: state.items.map(i => i.id === id ? { ...i, ...updates } : i) }))
+  - remove action: (id) => set((state) => ({ items: state.items.filter(i => i.id !== id) }))
+  - Example: updateFriend, updateGroup, removeLocalEvent already follow this pattern — copy their shape for new actions
+- CalendarEvent interface lives in src/data/mockEvents.ts. The store imports it with `import type { CalendarEvent } from '../data/mockEvents.ts'`
+- Modal pattern: fixed inset-0 overlay with bg-black/40, white rounded-2xl card, max-w-lg, centered via flex items-center justify-center
+- Input styling across the app: border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300
+- Orange (#F97316) is the primary accent. Active/selected states use bg-orange-500 text-white. Segmented controls (like ViewToggle and the importance picker in CreateEventModal) use this pattern.
+- Backend is Express 5 with CommonJS modules (not ESM). type: commonjs in backend/package.json. Routes go in backend/routes/ and are registered in backend/server.ts.
+- Backend typecheck command: cd backend && npx tsc --noEmit (has its own tsconfig.json)
+- Frontend build + typecheck command: npm run build (runs tsc -b && vite build)
+- Google OAuth helper: getValidClient(req) in backend/routes/google.ts returns an authenticated OAuth2 client or null. Every Google Calendar route must call it first and return 401 if null.
+- Notification pattern: addNotification({ id: `notif-<unique>`, fromName: 'Source', message: 'text', read: false, createdAt: new Date() })
+- DashboardPage assembles allEvents = [...mockEvents, ...googleCalendar.events (deduped by pushedGoogleIds), ...localEvents] and passes to CalendarGrid. After US-002 mockEvents will be [].
+- CalendarGrid receives events[] and onDayClick. DayView + WeekView render event blocks as absolutely positioned colored divs with the event title. MonthView renders events as 1.5px colored dots only — dots are NOT click targets.
+- Vite proxy is already configured in vite.config.ts: /api → http://localhost:3001 with changeOrigin: true. Do NOT add a duplicate.
+- Axios is used for all HTTP calls from the frontend. Backend runs on port 3001.
+- Express 5 route params: req.params.id is typed as string by default. For async route handlers, Express 5 catches rejected promises automatically — no need to wrap in try/catch just for error forwarding.
+- Google Calendar API: calendar.events.insert (create), calendar.events.update (edit), calendar.events.delete (remove). All use calendarId: 'primary'.
+- Token store is file-backed: backend/routes/google.ts reads/writes tokens.json via loadTokens() / saveTokens(). tokenStore is a module-level Record<string, TokenBundle>.
+- EventDetailPopup currently does NOT display importance — US-003 adds that line.
+- MessagingPage auto-reply system uses MOCK_REPLIES, typingConvId state, typingTimeout + replyTimeout refs — US-002 removes all of these.
+- dotenv in backend/server.ts now loads via path.resolve(__dirname, '..', '.env.local') — fixed in US-005.
+- deleteMessage(conversationId, messageId) action added to store; trash button appears on hover for own messages (US-004).
+- GifPicker no longer ships a hardcoded Giphy key. Missing key → "not configured" message; fetch failure → visible error (US-006).
+- GET /api/google/status returns { configured, connected } for OAuth diagnostics (US-005).
+- GET /api/google/auth guards against empty CLIENT_ID / CLIENT_SECRET with a 500 JSON error (US-005).
+
+## v1.3 Completion — 2026-02-04
+All 6 stories shipped and passing:
+  US-001 Strip placeholder data (notifications, friends, groups, conversations → [])
+  US-002 Remove mock events + auto-reply simulation
+  US-003 Replace 3-tier importance with 5-tier schedule priority
+  US-004 Add deleteMessage action + hover trash button on own messages
+  US-005 Harden Google OAuth: __dirname dotenv, /status endpoint, /auth 500 guard
+  US-006 GIF picker: remove hardcoded key, surface missing-key + fetch-error states
+---

@@ -1,0 +1,97 @@
+{
+  "project": "FamSchedule",
+  "branchName": "ralph/v1.3-cleanup-and-fixes",
+  "description": "FamSchedule v1.3 — five cleanup and fix areas: strip all placeholder/mock data, add message delete, replace 3-tier importance with 5-tier schedule priority, harden Google Calendar OAuth so it fails fast with useful errors, and fix the GIF picker so it surfaces API errors instead of silently going blank.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Strip placeholder data: notifications, friends, groups, and conversations",
+      "description": "As a new user, I want the app to start with empty state instead of hardcoded demo people and messages so the product feels real and does not confuse real users with fake names.",
+      "acceptanceCriteria": [
+        "In src/store/useAppStore.ts the notifications initial value is changed to []",
+        "In src/store/useAppStore.ts the friends initial value is changed to []",
+        "In src/store/useAppStore.ts the groups initial value is changed to []",
+        "In src/store/useAppStore.ts the conversations initial value is changed to []",
+        "Frontend typecheck passes: npm run build"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Remove mock calendar events and the auto-reply simulation from MessagingPage",
+      "description": "As a developer, I want the calendar to stop shipping 6 fake events and the messaging page to stop auto-replying so the app behaves like a real product.",
+      "acceptanceCriteria": [
+        "In src/data/mockEvents.ts the exported mockEvents array is changed to []. The CalendarEvent interface and the weekday helper stay — do not delete the file, only empty the array.",
+        "In src/pages/MessagingPage.tsx the MOCK_REPLIES constant is deleted entirely",
+        "The typingConvId state, typingTimeout ref, replyTimeout ref, and the typing-indicator JSX block (the three-dot bounce animation) are all removed",
+        "The auto-reply block at the end of handleSend — everything after the sendMessage() call that references replier, replyContent, conv.participantIds, friend, or either timeout ref — is removed",
+        "No unused imports or variables remain after the deletions",
+        "Frontend typecheck passes: npm run build"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Replace 3-tier importance (low / medium / high) with 5-tier schedule priority",
+      "description": "As a user, I want events to carry one of five priority levels so I can clearly communicate how fixed each commitment is.",
+      "acceptanceCriteria": [
+        "In src/data/mockEvents.ts the CalendarEvent importance type changes from 'low' | 'medium' | 'high' to 'non-negotiable' | 'highly-important' | 'important' | 'flexible' | 'soft'",
+        "In src/components/CreateEventModal.tsx the importance state type and the segmented-control button array use the five new values in this order: non-negotiable, highly-important, important, flexible, soft. The default value is 'important'. Labels render as: Non-Negotiable, Highly Important, Important, Flexible, Soft.",
+        "In src/components/EventDetailPopup.tsx a new line is added in the details section that displays the event's importance using the same human-readable labels. It renders only when event.importance is set.",
+        "grep -rn '\"low\"\\|\"medium\"\\|\"high\"' src/ finds no remaining references to the old importance values in .ts or .tsx files",
+        "Frontend typecheck passes: npm run build"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add delete-message action and a per-bubble dismiss button for own messages",
+      "description": "As a user, I want to delete messages I sent so I can correct mistakes or remove something I no longer want visible in the conversation.",
+      "acceptanceCriteria": [
+        "src/store/useAppStore.ts gains a deleteMessage(conversationId: string, messageId: string) action that filters the matching message out of the target conversation's messages array. It is declared in the AppState interface and wired in the create() call following the same pattern as removeLocalEvent.",
+        "In src/pages/MessagingPage.tsx each message bubble where senderId === 'you' gains a small delete button. On desktop it appears on hover (use a group-hover pattern on the wrapper div). It is positioned at the top-right of the bubble with a trash-can SVG icon or an x symbol, styled to not visually clash with the orange bubble.",
+        "Tapping the delete button calls deleteMessage(activeId, msg.id). The message disappears from the thread immediately with no confirmation dialog.",
+        "Messages where senderId !== 'you' do not have any delete button",
+        "Frontend typecheck passes: npm run build"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Harden Google Calendar OAuth: guard against missing env vars, add /status endpoint",
+      "description": "As a developer, I want the Google Calendar connection to fail fast with a readable error when credentials are not configured, and to have a status endpoint I can hit to diagnose connectivity problems.",
+      "acceptanceCriteria": [
+        "In backend/server.ts the dotenv.config call resolves its path using path.resolve(__dirname, '..', '.env.local') so the file is found regardless of which directory the process is started from. Currently it uses the relative string '../.env.local' which resolves against cwd, not __dirname.",
+        "In backend/routes/google.ts GET /auth returns a 500 JSON response { error: 'Google OAuth credentials not configured — set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local' } when CLIENT_ID or CLIENT_SECRET is an empty string, instead of generating a broken Google consent URL",
+        "A new GET /api/google/status route is added to the google router. It returns JSON { configured: boolean, connected: boolean }. configured is true when both CLIENT_ID and CLIENT_SECRET are non-empty strings. connected is true when the request has a valid googleSessionId cookie that maps to an entry in tokenStore.",
+        "Backend typecheck passes: cd backend && npx tsc --noEmit",
+        "Frontend typecheck passes: npm run build"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Vite proxy for /api already exists in vite.config.ts — do not add a duplicate. The backend must be running on port 3001 for the proxy to forward to."
+    },
+    {
+      "id": "US-006",
+      "title": "Fix GIF picker: remove hardcoded API key, surface missing-key and fetch-error states",
+      "description": "As a user, I want the GIF picker to show a clear message when it cannot load GIFs instead of silently displaying an empty grid.",
+      "acceptanceCriteria": [
+        "In src/components/GifPicker.tsx the hardcoded fallback Giphy key (the || 'b5MfEMnkfbCxPsEJMG5FiVEOdHEXG7oZ' string) is removed. GIPHY_API_KEY is set only from import.meta.env.VITE_GIPHY_API_KEY with no || fallback.",
+        "When VITE_GIPHY_API_KEY is undefined or an empty string the component renders a visible message — something like 'GIF search is not configured. Add VITE_GIPHY_API_KEY to your .env.local file.' — and makes no fetch calls.",
+        "When a Giphy fetch returns a non-2xx status or throws a network error the component sets an error state and renders a visible error message (e.g. 'Could not load GIFs — check your API key or network connection.') instead of silently showing an empty grid.",
+        "Frontend typecheck passes: npm run build"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}
