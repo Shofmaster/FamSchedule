@@ -35,8 +35,19 @@ function createOAuth2Client() {
   return new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI)
 }
 
+// GET /api/google/status — reports credential and session state
+router.get('/status', (req: Request, res: Response) => {
+  const configured = CLIENT_ID.length > 0 && CLIENT_SECRET.length > 0
+  const sessionId = req.cookies?.googleSessionId
+  const connected = !!(sessionId && tokenStore[sessionId])
+  res.json({ configured, connected })
+})
+
 // GET /api/google/auth — returns the Google OAuth consent URL
 router.get('/auth', (_req: Request, res: Response) => {
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    return res.status(500).json({ error: 'Google OAuth credentials not configured — set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local' })
+  }
   const oauth2Client = createOAuth2Client()
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',

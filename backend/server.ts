@@ -7,7 +7,7 @@ import googleRouter from './routes/google'
 import attachmentsRouter from './routes/attachments'
 import errorHandler from './middleware/errorHandler'
 
-dotenv.config({ path: '../.env.local' })
+dotenv.config({ path: path.resolve(__dirname, '..', '.env.local') })
 
 const app = express()
 const PORT = process.env.PORT || 3001
