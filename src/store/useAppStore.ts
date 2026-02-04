@@ -120,22 +120,10 @@ interface AppState {
 const useAppStore = create<AppState>()(persist((set) => ({
   calendarView: 'day',
   selectedDate: new Date(),
-  notifications: [
-    { id: '1', fromName: 'Sarah', message: 'Moved "Family Dinner" to Friday 7pm', read: false, createdAt: new Date() },
-    { id: '2', fromName: 'Dad', message: 'Accepted "Weekend Hike"', read: false, createdAt: new Date(Date.now() - 3600000) },
-    { id: '3', fromName: 'Mom', message: 'Added you to "Book Club"', read: true, createdAt: new Date(Date.now() - 86400000) },
-  ],
+  notifications: [],
   googleCalendar: { isConnected: false, events: [], lastSynced: null },
-  friends: [
-    { id: 'friend-sarah', name: 'Sarah Chen', email: 'sarah@example.com', phone: '(555) 123-4567', groupType: 'family', priority: 1 },
-    { id: 'friend-dad', name: 'Dad', email: 'dad@example.com', phone: '(555) 234-5678', groupType: 'family', priority: 1 },
-    { id: 'friend-jake', name: 'Jake', email: 'jake@example.com', phone: '(555) 345-6789', groupType: 'friends', priority: 2 },
-    { id: 'friend-mia', name: 'Mia', email: 'mia@example.com', groupType: 'friends', priority: 1 },
-  ],
-  groups: [
-    { id: 'group-family', name: 'My Family', type: 'family', priority: 1, memberIds: ['friend-sarah', 'friend-dad'] },
-    { id: 'group-college', name: 'College Friends', type: 'friends', priority: 2, memberIds: ['friend-jake', 'friend-mia'] },
-  ],
+  friends: [],
+  groups: [],
   syncProposals: [],
   setCalendarView: (view) => set({ calendarView: view }),
   setSelectedDate: (date) => set({ selectedDate: date }),
@@ -230,78 +218,7 @@ const useAppStore = create<AppState>()(persist((set) => ({
         ...state.notifications,
       ],
     })),
-  conversations: [
-    {
-      id: 'conv-sarah',
-      type: 'dm',
-      name: 'Sarah Chen',
-      participantIds: ['friend-sarah'],
-      unreadCount: 1,
-      messages: [
-        { id: 'msg-s1', senderId: 'friend-sarah', senderName: 'Sarah Chen', content: 'Hey, did you see the schedule update for this weekend?', createdAt: new Date(Date.now() - 7200000) },
-        { id: 'msg-s2', senderId: 'you', senderName: 'You', content: 'Yeah just saw it. Looks like a packed Saturday!', createdAt: new Date(Date.now() - 5400000) },
-        { id: 'msg-s3', senderId: 'friend-sarah', senderName: 'Sarah Chen', content: 'Want to grab dinner Saturday around 7?', createdAt: new Date(Date.now() - 1800000) },
-      ],
-    },
-    {
-      id: 'conv-dad',
-      type: 'dm',
-      name: 'Dad',
-      participantIds: ['friend-dad'],
-      unreadCount: 2,
-      messages: [
-        { id: 'msg-d1', senderId: 'you', senderName: 'You', content: 'Hey Dad, are we still doing the car wash this weekend?', createdAt: new Date(Date.now() - 86400000) },
-        { id: 'msg-d2', senderId: 'friend-dad', senderName: 'Dad', content: "Yep! Saturday morning. Don't forget to bring towels.", createdAt: new Date(Date.now() - 3600000) },
-        { id: 'msg-d3', senderId: 'friend-dad', senderName: 'Dad', content: 'Be there around 9am.', createdAt: new Date(Date.now() - 3500000) },
-      ],
-    },
-    {
-      id: 'conv-jake',
-      type: 'dm',
-      name: 'Jake',
-      participantIds: ['friend-jake'],
-      unreadCount: 0,
-      messages: [
-        { id: 'msg-j1', senderId: 'you', senderName: 'You', content: 'Hey Jake, are you going to the study session Thursday?', createdAt: new Date(Date.now() - 172800000) },
-        { id: 'msg-j2', senderId: 'friend-jake', senderName: 'Jake', content: "For sure, I'll be there. See you at 3.", createdAt: new Date(Date.now() - 172000000) },
-      ],
-    },
-    {
-      id: 'conv-mia',
-      type: 'dm',
-      name: 'Mia',
-      participantIds: ['friend-mia'],
-      unreadCount: 0,
-      messages: [
-        { id: 'msg-m1', senderId: 'friend-mia', senderName: 'Mia', content: 'Did you finish the project?', createdAt: new Date(Date.now() - 259200000) },
-        { id: 'msg-m2', senderId: 'you', senderName: 'You', content: 'Almost, just need to wrap up the last section.', createdAt: new Date(Date.now() - 259000000) },
-      ],
-    },
-    {
-      id: 'conv-family-group',
-      type: 'group',
-      name: 'My Family',
-      participantIds: ['friend-sarah', 'friend-dad'],
-      unreadCount: 1,
-      messages: [
-        { id: 'msg-fg1', senderId: 'friend-sarah', senderName: 'Sarah Chen', content: 'Who is cooking dinner tonight?', createdAt: new Date(Date.now() - 7200000) },
-        { id: 'msg-fg2', senderId: 'friend-dad', senderName: 'Dad', content: 'I can handle it tonight.', createdAt: new Date(Date.now() - 5000000) },
-        { id: 'msg-fg3', senderId: 'friend-sarah', senderName: 'Sarah Chen', content: 'Perfect, thanks Dad!', createdAt: new Date(Date.now() - 1200000) },
-      ],
-    },
-    {
-      id: 'conv-college-group',
-      type: 'group',
-      name: 'College Friends',
-      participantIds: ['friend-jake', 'friend-mia'],
-      unreadCount: 2,
-      messages: [
-        { id: 'msg-cg1', senderId: 'friend-jake', senderName: 'Jake', content: 'Anyone free this Friday night?', createdAt: new Date(Date.now() - 43200000) },
-        { id: 'msg-cg2', senderId: 'friend-mia', senderName: 'Mia', content: "I'm free! Let's grab dinner somewhere.", createdAt: new Date(Date.now() - 40000000) },
-        { id: 'msg-cg3', senderId: 'friend-jake', senderName: 'Jake', content: 'That new place on 5th looks good.', createdAt: new Date(Date.now() - 1800000) },
-      ],
-    },
-  ],
+  conversations: [],
   sendMessage: (conversationId, content, attachments) =>
     set((state) => ({
       conversations: state.conversations.map((c) =>
