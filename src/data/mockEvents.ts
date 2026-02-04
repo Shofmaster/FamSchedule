@@ -8,7 +8,7 @@ export interface CalendarEvent {
   allDay?: boolean
   recurrence?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'
   recurrenceCustom?: string
-  importance?: 'low' | 'medium' | 'high'
+  importance?: 'non-negotiable' | 'highly-important' | 'important' | 'flexible' | 'soft'
   guestIds?: string[]
   description?: string
   location?: string

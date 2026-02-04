@@ -38,6 +38,12 @@ export default function EventDetailPopup({ event, friends, onClose, onEdit, onDe
               <span className="font-medium text-gray-600">Location:</span> {event.location}
             </p>
           )}
+          {event.importance && (
+            <p className="text-sm text-gray-500">
+              <span className="font-medium text-gray-600">Priority:</span>{' '}
+              {event.importance === 'non-negotiable' ? 'Non-Negotiable' : event.importance === 'highly-important' ? 'Highly Important' : event.importance === 'important' ? 'Important' : event.importance === 'flexible' ? 'Flexible' : 'Soft'}
+            </p>
+          )}
           {event.description && <p className="text-sm text-gray-500">{event.description}</p>}
           {guestNames.length > 0 && (
             <p className="text-sm text-gray-500">

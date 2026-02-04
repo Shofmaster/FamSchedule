@@ -37,7 +37,7 @@ export default function CreateEventModal({ initialDate, existingEvent, onClose, 
   const [endTime, setEndTime] = useState(existingEvent ? formatTimeInput(existingEvent.end) : formatTimeInput(addHour(initialDate)))
   const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'>(existingEvent?.recurrence ?? 'none')
   const [recurrenceCustom, setRecurrenceCustom] = useState(existingEvent?.recurrenceCustom ?? '')
-  const [importance, setImportance] = useState<'low' | 'medium' | 'high'>(existingEvent?.importance ?? 'medium')
+  const [importance, setImportance] = useState<'non-negotiable' | 'highly-important' | 'important' | 'flexible' | 'soft'>(existingEvent?.importance ?? 'important')
   const [guestIds, setGuestIds] = useState<string[]>(existingEvent?.guestIds ?? [])
   const [guestFilter, setGuestFilter] = useState('')
   const [description, setDescription] = useState(existingEvent?.description ?? '')
@@ -172,20 +172,26 @@ export default function CreateEventModal({ initialDate, existingEvent, onClose, 
             )}
           </div>
 
-          {/* Importance — segmented control, matches ViewToggle pattern */}
+          {/* Schedule Priority — segmented control */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Importance</label>
-            <div className="flex bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              {(['low', 'medium', 'high'] as const).map((level) => (
+            <label className="block text-sm font-medium text-gray-700 mb-1">Schedule Priority</label>
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                { value: 'non-negotiable' as const, label: 'Non-Negotiable' },
+                { value: 'highly-important' as const, label: 'Highly Important' },
+                { value: 'important' as const, label: 'Important' },
+                { value: 'flexible' as const, label: 'Flexible' },
+                { value: 'soft' as const, label: 'Soft' },
+              ]).map((option) => (
                 <button
-                  key={level}
+                  key={option.value}
                   type="button"
-                  onClick={() => setImportance(level)}
-                  className={`flex-1 px-4 py-2 text-sm font-medium capitalize transition-colors ${
-                    importance === level ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-50'
+                  onClick={() => setImportance(option.value)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-full transition-colors ${
+                    importance === option.value ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
-                  {level}
+                  {option.label}
                 </button>
               ))}
             </div>
