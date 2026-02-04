@@ -27,6 +27,8 @@ export default function DashboardPage() {
   const addNotification = useAppStore((s) => s.addNotification)
   const friends = useAppStore((s) => s.friends)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
+  const updateLocalEvent = useAppStore((s) => s.updateLocalEvent)
   // Dedup: if a local event was pushed to Google, hide the matching Google copy
   const pushedGoogleIds = new Set(localEvents.map((e) => e.googleEventId).filter(Boolean))
   const allEvents = [
@@ -93,8 +95,21 @@ export default function DashboardPage() {
           event={selectedEvent}
           friends={friends}
           onClose={() => setSelectedEvent(null)}
-          onEdit={() => {/* wired in US-009 */}}
-          onDelete={() => {
+          onEdit={() => { setEditingEvent(selectedEvent); setSelectedEvent(null) }}
+          onDelete={async () => {
+            if (selectedEvent.googleEventId && googleCalendar.isConnected) {
+              try {
+                await axios.delete(`/api/google/events/${selectedEvent.googleEventId}`)
+              } catch {
+                addNotification({
+                  id: `notif-google-err-${Date.now()}`,
+                  fromName: 'Google Calendar',
+                  message: `Could not delete "${selectedEvent.title}" from Google Calendar. Removed locally.`,
+                  read: false,
+                  createdAt: new Date(),
+                })
+              }
+            }
             removeLocalEvent(selectedEvent.id)
             setSelectedEvent(null)
           }}
@@ -133,6 +148,42 @@ export default function DashboardPage() {
             }
             addLocalEvent(event)
             setCreateEventDate(null)
+          }}
+        />
+      )}
+
+      {editingEvent && (
+        <CreateEventModal
+          initialDate={editingEvent.start}
+          existingEvent={editingEvent}
+          onClose={() => setEditingEvent(null)}
+          onSubmit={async (event, pushToGoogle) => {
+            if (pushToGoogle && googleCalendar.isConnected && event.googleEventId) {
+              try {
+                const emails = (event.guestIds || [])
+                  .map((id) => friends.find((f) => f.id === id)?.email)
+                  .filter(Boolean) as string[]
+                await axios.put(`/api/google/events/${event.googleEventId}`, {
+                  title: event.title,
+                  start: event.start.toISOString(),
+                  end: event.end.toISOString(),
+                  allDay: event.allDay,
+                  description: event.description,
+                  location: event.location,
+                  guests: emails,
+                })
+              } catch {
+                addNotification({
+                  id: `notif-google-err-${Date.now()}`,
+                  fromName: 'Google Calendar',
+                  message: `Could not update "${event.title}" on Google Calendar. Saved locally.`,
+                  read: false,
+                  createdAt: new Date(),
+                })
+              }
+            }
+            updateLocalEvent(event.id, event)
+            setEditingEvent(null)
           }}
         />
       )}
