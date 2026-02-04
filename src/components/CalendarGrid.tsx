@@ -3,6 +3,8 @@ import useAppStore from '../store/useAppStore.ts'
 
 interface CalendarGridProps {
   events: CalendarEvent[]
+  onDayClick?: (date: Date) => void
+  onEventClick?: (event: CalendarEvent) => void
 }
 
 // ── Constants ────────────────────────────────────────────────
@@ -74,7 +76,7 @@ function formatShortDate(date: Date): string {
 }
 
 // ── Sub-views ────────────────────────────────────────────────
-function DayView({ selectedDate, events }: { selectedDate: Date; events: CalendarEvent[] }) {
+function DayView({ selectedDate, events, onDayClick, onEventClick }: { selectedDate: Date; events: CalendarEvent[]; onDayClick?: (date: Date) => void; onEventClick?: (event: CalendarEvent) => void }) {
   const dayEvents = events.filter((e) => isSameDay(e.start, selectedDate))
 
   return (
@@ -83,7 +85,8 @@ function DayView({ selectedDate, events }: { selectedDate: Date; events: Calenda
         {HOURS.map((hour, i) => (
           <div
             key={hour}
-            className="absolute left-0 right-0 border-t border-gray-100"
+            onClick={() => { const d = new Date(selectedDate); d.setHours(hour, 0, 0, 0); onDayClick?.(d) }}
+            className="absolute left-0 right-0 border-t border-gray-100 cursor-pointer hover:bg-orange-50 transition-colors"
             style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
           >
             <span className="text-xs text-gray-400 pl-2 pt-0.5 block">{formatHour(hour)}</span>
@@ -92,7 +95,8 @@ function DayView({ selectedDate, events }: { selectedDate: Date; events: Calenda
         {dayEvents.map((ev) => (
           <div
             key={ev.id}
-            className="absolute left-14 right-2 rounded-lg px-2 py-1 text-sm font-semibold text-white shadow-sm overflow-hidden"
+            onClick={(e) => { e.stopPropagation(); onEventClick?.(ev) }}
+            className="absolute left-14 right-2 rounded-lg px-2 py-1 text-sm font-semibold text-white shadow-sm overflow-hidden cursor-pointer hover:opacity-80"
             style={{ top: getEventTop(ev), height: Math.max(getEventHeight(ev), 24), backgroundColor: ev.color }}
           >
             {ev.title}
@@ -103,7 +107,7 @@ function DayView({ selectedDate, events }: { selectedDate: Date; events: Calenda
   )
 }
 
-function WeekView({ selectedDate, events }: { selectedDate: Date; events: CalendarEvent[] }) {
+function WeekView({ selectedDate, events, onDayClick, onEventClick }: { selectedDate: Date; events: CalendarEvent[]; onDayClick?: (date: Date) => void; onEventClick?: (event: CalendarEvent) => void }) {
   const weekDays = getWeekDays(selectedDate)
   const today = new Date()
 
@@ -126,7 +130,7 @@ function WeekView({ selectedDate, events }: { selectedDate: Date; events: Calend
         {HOURS.map((hour, i) => (
           <div key={hour} className="absolute left-0 right-0 border-t border-gray-100 flex" style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}>
             <span className="text-xs text-gray-400 w-14 pl-1 pt-0.5 flex-shrink-0">{formatHour(hour)}</span>
-            {weekDays.map((_, j) => <div key={j} className="flex-1 border-l border-gray-100" />)}
+            {weekDays.map((day, j) => <div key={j} onClick={() => { const d = new Date(day); d.setHours(hour, 0, 0, 0); onDayClick?.(d) }} className="flex-1 border-l border-gray-100 cursor-pointer hover:bg-orange-50 transition-colors" />)}
           </div>
         ))}
         {/* Events */}
@@ -136,7 +140,8 @@ function WeekView({ selectedDate, events }: { selectedDate: Date; events: Calend
             .map((ev) => (
               <div
                 key={ev.id}
-                className="absolute rounded px-1 py-0.5 text-xs font-semibold text-white shadow-sm overflow-hidden"
+                onClick={(e) => { e.stopPropagation(); onEventClick?.(ev) }}
+                className="absolute rounded px-1 py-0.5 text-xs font-semibold text-white shadow-sm overflow-hidden cursor-pointer hover:opacity-80"
                 style={{
                   top: getEventTop(ev),
                   height: Math.max(getEventHeight(ev), 20),
@@ -154,7 +159,7 @@ function WeekView({ selectedDate, events }: { selectedDate: Date; events: Calend
   )
 }
 
-function MonthView({ selectedDate, events }: { selectedDate: Date; events: CalendarEvent[] }) {
+function MonthView({ selectedDate, events, onDayClick }: { selectedDate: Date; events: CalendarEvent[]; onDayClick?: (date: Date) => void }) {
   const grid = getMonthGrid(selectedDate)
   const currentMonth = selectedDate.getMonth()
   const today = new Date()
@@ -173,7 +178,7 @@ function MonthView({ selectedDate, events }: { selectedDate: Date; events: Calen
           const dots = events.filter((e) => isSameDay(e.start, day)).slice(0, 3)
 
           return (
-            <div key={i} className={`min-h-[64px] p-1.5 border-b border-r border-gray-100 ${inMonth ? 'bg-white' : 'bg-gray-50'}`}>
+            <div key={i} onClick={() => { const d = new Date(day); d.setHours(9, 0, 0, 0); onDayClick?.(d) }} className={`min-h-[64px] p-1.5 border-b border-r border-gray-100 cursor-pointer hover:bg-orange-50 transition-colors ${inMonth ? 'bg-white' : 'bg-gray-50'}`}>
               <div className={`text-xs font-medium ${isToday ? 'text-orange-500 font-bold' : inMonth ? 'text-gray-900' : 'text-gray-400'}`}>
                 {day.getDate()}
               </div>
@@ -193,7 +198,7 @@ function MonthView({ selectedDate, events }: { selectedDate: Date; events: Calen
 }
 
 // ── Main component ───────────────────────────────────────────
-export default function CalendarGrid({ events }: CalendarGridProps) {
+export default function CalendarGrid({ events, onDayClick, onEventClick }: CalendarGridProps) {
   const calendarView = useAppStore((s) => s.calendarView)
   const selectedDate = useAppStore((s) => s.selectedDate)
   const setSelectedDate = useAppStore((s) => s.setSelectedDate)
@@ -224,9 +229,9 @@ export default function CalendarGrid({ events }: CalendarGridProps) {
         <button onClick={() => navigate(1)} className="p-1 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 text-lg">▶</button>
       </div>
 
-      {calendarView === 'day' && <DayView selectedDate={selectedDate} events={events} />}
-      {calendarView === 'week' && <WeekView selectedDate={selectedDate} events={events} />}
-      {calendarView === 'month' && <MonthView selectedDate={selectedDate} events={events} />}
+      {calendarView === 'day' && <DayView selectedDate={selectedDate} events={events} onDayClick={onDayClick} onEventClick={onEventClick} />}
+      {calendarView === 'week' && <WeekView selectedDate={selectedDate} events={events} onDayClick={onDayClick} onEventClick={onEventClick} />}
+      {calendarView === 'month' && <MonthView selectedDate={selectedDate} events={events} onDayClick={onDayClick} />}
     </div>
   )
 }
