@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { CalendarEvent } from '../data/mockEvents.ts'
 import useAppStore from '../store/useAppStore.ts'
 
@@ -159,10 +160,16 @@ function WeekView({ selectedDate, events, onDayClick, onEventClick }: { selected
   )
 }
 
-function MonthView({ selectedDate, events, onDayClick, onEventClick, onMoreClick }: { selectedDate: Date; events: CalendarEvent[]; onDayClick?: (date: Date) => void; onEventClick?: (event: CalendarEvent) => void; onMoreClick?: (date: Date) => void }) {
+function MonthView({ selectedDate, events, onDayClick, onEventClick }: { selectedDate: Date; events: CalendarEvent[]; onDayClick?: (date: Date) => void; onEventClick?: (event: CalendarEvent) => void }) {
   const grid = getMonthGrid(selectedDate)
   const currentMonth = selectedDate.getMonth()
   const today = new Date()
+  const [popoverDay, setPopoverDay] = useState<Date | null>(null)
+
+  const popEvents = popoverDay ? events.filter((e) => isSameDay(e.start, popoverDay)) : []
+  const popDayLabel = popoverDay
+    ? popoverDay.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+    : ''
 
   return (
     <div>
@@ -180,7 +187,7 @@ function MonthView({ selectedDate, events, onDayClick, onEventClick, onMoreClick
           const remaining = dayEvents.length - visible.length
 
           return (
-            <div key={i} onClick={() => { const d = new Date(day); d.setHours(9, 0, 0, 0); onDayClick?.(d) }} className={`min-h-[80px] p-1.5 border-b border-r border-gray-100 cursor-pointer hover:bg-orange-50 transition-colors ${inMonth ? 'bg-white' : 'bg-gray-50'}`}>
+            <div key={i} onClick={() => setPopoverDay(day)} className={`min-h-[80px] p-1.5 border-b border-r border-gray-100 cursor-pointer hover:bg-orange-50 transition-colors ${inMonth ? 'bg-white' : 'bg-gray-50'}`}>
               <div className={`text-xs font-medium ${isToday ? 'text-orange-500 font-bold' : inMonth ? 'text-gray-900' : 'text-gray-400'}`}>
                 {day.getDate()}
               </div>
@@ -197,7 +204,7 @@ function MonthView({ selectedDate, events, onDayClick, onEventClick, onMoreClick
                 ))}
                 {remaining > 0 && (
                   <span
-                    onClick={(ev) => { ev.stopPropagation(); onMoreClick?.(day) }}
+                    onClick={(ev) => { ev.stopPropagation(); setPopoverDay(day) }}
                     className="text-xs text-orange-600 font-medium cursor-pointer hover:text-orange-700 pl-1"
                   >
                     +{remaining} more
@@ -208,6 +215,50 @@ function MonthView({ selectedDate, events, onDayClick, onEventClick, onMoreClick
           )
         })}
       </div>
+
+      {/* Day-events popover */}
+      {popoverDay && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setPopoverDay(null)} />
+          <div
+            className="fixed z-50 bg-white rounded-xl shadow-lg border border-gray-200 w-64 max-h-80 overflow-y-auto"
+            style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-3 border-b border-gray-100">
+              <h4 className="text-sm font-semibold text-gray-900">{popDayLabel}</h4>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {popEvents.length === 0 && (
+                <p className="text-xs text-gray-400 p-3">No events</p>
+              )}
+              {popEvents.map((ev) => (
+                <button
+                  key={ev.id}
+                  type="button"
+                  onClick={() => { setPopoverDay(null); onEventClick?.(ev) }}
+                  className="w-full text-left flex items-center gap-2 px-3 py-2 hover:bg-orange-50 transition-colors"
+                >
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: ev.color }} />
+                  <span className="text-sm text-gray-800 truncate">{ev.title}</span>
+                  <span className="text-xs text-gray-400 ml-auto shrink-0">
+                    {ev.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="border-t border-gray-100 p-2">
+              <button
+                type="button"
+                onClick={() => { const d = new Date(popoverDay); d.setHours(9, 0, 0, 0); setPopoverDay(null); onDayClick?.(d) }}
+                className="w-full text-left text-xs text-orange-600 font-semibold hover:text-orange-700 px-1 py-1"
+              >
+                + New event
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -217,7 +268,6 @@ export default function CalendarGrid({ events, onDayClick, onEventClick }: Calen
   const calendarView = useAppStore((s) => s.calendarView)
   const selectedDate = useAppStore((s) => s.selectedDate)
   const setSelectedDate = useAppStore((s) => s.setSelectedDate)
-  const setCalendarView = useAppStore((s) => s.setCalendarView)
 
   const navigate = (dir: number) => {
     const d = new Date(selectedDate)
@@ -244,7 +294,7 @@ export default function CalendarGrid({ events, onDayClick, onEventClick }: Calen
   })()
 
   return (
-    <div className="bg-white/90 backdrop-blur-sm shadow-sm rounded-xl border border-gray-200 flex flex-col overflow-hidden">
+    <div className={`bg-white/90 backdrop-blur-sm shadow-sm rounded-xl border border-gray-200 flex flex-col ${calendarView === 'month' ? 'overflow-visible' : 'overflow-hidden'}`}>
       {/* Nav header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <button onClick={() => navigate(-1)} className="p-1 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 text-lg">◀</button>
@@ -261,7 +311,7 @@ export default function CalendarGrid({ events, onDayClick, onEventClick }: Calen
 
       {calendarView === 'day' && <DayView selectedDate={selectedDate} events={events} onDayClick={onDayClick} onEventClick={onEventClick} />}
       {calendarView === 'week' && <WeekView selectedDate={selectedDate} events={events} onDayClick={onDayClick} onEventClick={onEventClick} />}
-      {calendarView === 'month' && <MonthView selectedDate={selectedDate} events={events} onDayClick={onDayClick} onEventClick={onEventClick} onMoreClick={(date) => { setSelectedDate(date); setCalendarView('day') }} />}
+      {calendarView === 'month' && <MonthView selectedDate={selectedDate} events={events} onDayClick={onDayClick} onEventClick={onEventClick} />}
     </div>
   )
 }
