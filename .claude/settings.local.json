@@ -7,7 +7,13 @@
       "Bash(tree:*)",
       "Bash(npx vite build:*)",
       "Bash(git checkout:*)",
-      "Bash(npx vite build)"
+      "Bash(npx vite build)",
+      "Bash(npm run build:*)",
+      "Bash(command -v:*)",
+      "Bash(npx:*)",
+      "Bash(\"c:\\\\Users\\\\shelb\\\\.vscode\\\\extensions\\\\anthropic.claude-code-2.1.31-win32-x64\\\\resources\\\\native-binary\\\\claude.exe\" --version)",
+      "Bash(bash -c '\n# Simulate the discovery block\n_CLAUDE_EXE=$\\(find \"\"$HOME/.vscode/extensions\"\" -name \"\"claude.exe\"\" -path \"\"*/native-binary/*\"\" 2>/dev/null | sort -V | tail -1\\)\necho \"\"Found: $_CLAUDE_EXE\"\"\nexport PATH=\"\"$\\(dirname \"\"$_CLAUDE_EXE\"\"\\):$PATH\"\"\ncommand -v claude && claude --version\n')",
+      "Bash(bash:*)"
     ],
     "mode": "no"
   }
