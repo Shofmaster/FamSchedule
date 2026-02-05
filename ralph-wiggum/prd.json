@@ -93,7 +93,7 @@
         "Frontend typecheck passes: npm run build"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "useSearchParams is already imported in DashboardPage for the google=connected flow. Extend that usage. The google=connected useEffect must be updated to preserve other params when clearing that one param."
     }
   ]

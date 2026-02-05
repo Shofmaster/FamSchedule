@@ -44,9 +44,15 @@ export default function DashboardPage() {
   ]
   const [rangeStart, rangeEnd] = getVisibleRange(calendarView, selectedDate)
   const expandedEvents = expandRecurrence(allEvents, rangeStart, rangeEnd)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [activeColors, setActiveColors] = useState<string[]>([])
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'local' | 'google'>('all')
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('searchQuery') ?? '')
+  const [activeColors, setActiveColors] = useState<string[]>(() => {
+    const raw = searchParams.get('colors')
+    return raw ? raw.split(',') : []
+  })
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'local' | 'google'>(() => {
+    const raw = searchParams.get('source')
+    return raw === 'local' || raw === 'google' ? raw : 'all'
+  })
   const colorFilteredEvents = activeColors.length === 0 ? expandedEvents : expandedEvents.filter((e) => activeColors.includes(e.color))
   const sourceFilteredEvents = sourceFilter === 'all' ? colorFilteredEvents : colorFilteredEvents.filter((e) => e.source === sourceFilter)
   const filteredEvents = searchQuery
@@ -62,10 +68,21 @@ export default function DashboardPage() {
   // After OAuth redirect, detect ?google=connected and sync
   useEffect(() => {
     if (searchParams.get('google') === 'connected') {
-      setSearchParams({})
+      const next = new URLSearchParams(searchParams)
+      next.delete('google')
+      setSearchParams(next)
       syncGoogleEvents()
     }
   }, [searchParams, setSearchParams, syncGoogleEvents])
+
+  // Persist filter state to URL search params
+  useEffect(() => {
+    const next = new URLSearchParams()
+    if (searchQuery) next.set('searchQuery', searchQuery)
+    if (activeColors.length > 0) next.set('colors', activeColors.join(','))
+    if (sourceFilter !== 'all') next.set('source', sourceFilter)
+    setSearchParams(next)
+  }, [searchQuery, activeColors, sourceFilter, setSearchParams])
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

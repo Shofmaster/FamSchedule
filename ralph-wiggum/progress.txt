@@ -116,3 +116,24 @@ All 9 stories shipped and passing:
   - expandRecurrence import path uses .ts extension per verbatimModuleSyntax
   - Date boundary computations: create new Date objects from todayMidnight for each boundary to avoid mutation bugs
 ---
+
+## 2026-02-05 - US-005
+- Persisted filter state (searchQuery, activeColors, sourceFilter) in URL search params
+- State initialization: useState initializers read q, colors (comma-separated), source from searchParams
+- Sync effect: writes q/colors/source to URL; omits defaults (empty q, empty colors, source=all)
+- google=connected handler: now creates new URLSearchParams copy, deletes only 'google' key, preserving sibling filter params
+- No new dependencies — useSearchParams already imported
+- Files changed: src/pages/DashboardPage.tsx
+- **Learnings for future iterations:**
+  - useState lazy initializers are the right way to read URL params on mount — avoids extra render
+  - The sync-to-URL effect and the google=connected effect can coexist safely: google handler runs first (on the searchParams change), then sync effect fires on filter state changes
+  - Use `new URLSearchParams(searchParams)` to clone, then `.delete()` for selective removal
+---
+
+## v1.5 Completion — 2026-02-05
+All 5 stories shipped and passing:
+  US-001 Color filter chips in dashboard controls row
+  US-002 Source filter segmented control (All / Local / Google)
+  US-003 Mini month navigator widget in dashboard sidebar
+  US-004 Rewrite UpcomingEvents into grouped Today / Tomorrow / Later summary
+  US-005 Persist active filters in URL search params
