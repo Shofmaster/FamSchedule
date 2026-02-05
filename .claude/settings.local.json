@@ -1,8 +1,14 @@
 {
   "permissions": {
-    "mode": "no",
     "allow": [
-      "Bash(npm install:*)"
-    ]
+      "Bash(npm install:*)",
+      "Bash(git reset:*)",
+      "Bash(cd:*)",
+      "Bash(tree:*)",
+      "Bash(npx vite build:*)",
+      "Bash(git checkout:*)",
+      "Bash(npx vite build)"
+    ],
+    "mode": "no"
   }
 }

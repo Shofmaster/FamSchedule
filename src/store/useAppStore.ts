@@ -115,6 +115,7 @@ interface AppState {
   deleteMessage: (conversationId: string, messageId: string) => void
   markConversationRead: (id: string) => void
   createConversation: (type: 'dm' | 'group', name: string, participantIds: string[]) => string
+  deleteConversation: (conversationId: string) => void
 }
 
 
@@ -251,6 +252,10 @@ const useAppStore = create<AppState>()(persist((set) => ({
     }))
     return id
   },
+  deleteConversation: (conversationId) =>
+    set((state) => ({
+      conversations: state.conversations.filter((c) => c.id !== conversationId),
+    })),
 }), {
   name: 'famschedule-store',
   storage: createJSONStorage(() => localStorage, {

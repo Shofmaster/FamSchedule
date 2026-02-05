@@ -80,6 +80,7 @@ export default function MessagingPage() {
   const deleteMessage = useAppStore((s) => s.deleteMessage)
   const markConversationRead = useAppStore((s) => s.markConversationRead)
   const createConversation = useAppStore((s) => s.createConversation)
+  const deleteConversation = useAppStore((s) => s.deleteConversation)
 
   const [activeId, setActiveId] = useState<string | null>(null)
   const [input, setInput] = useState('')
@@ -175,6 +176,13 @@ export default function MessagingPage() {
     }
   }
 
+  const handleDeleteConversation = () => {
+    if (!activeId || !activeConversation) return
+    if (!window.confirm(`Delete the conversation with ${activeConversation.name}? This can't be undone.`)) return
+    deleteConversation(activeId)
+    setActiveId(null)
+  }
+
   const sorted = [...conversations].sort((a, b) => {
     const tA = a.messages.length ? a.messages[a.messages.length - 1].createdAt.getTime() : 0
     const tB = b.messages.length ? b.messages[b.messages.length - 1].createdAt.getTime() : 0
@@ -268,6 +276,15 @@ export default function MessagingPage() {
                   {activeConversation.type === 'group' ? `${activeConversation.participantIds.length + 1} members` : 'Direct message'}
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={handleDeleteConversation}
+                className="ml-auto w-8 h-8 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
             </div>
 
             {/* Message thread */}
