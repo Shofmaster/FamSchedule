@@ -129,7 +129,7 @@ const useAppStore = create<AppState>()(persist((set) => ({
   syncProposals: [],
   setCalendarView: (view) => set({ calendarView: view }),
   setSelectedDate: (date) => set({ selectedDate: date }),
-  addNotification: (notification) => set((state) => ({ notifications: [notification, ...state.notifications] })),
+  addNotification: (notification) => set((state) => ({ notifications: [notification, ...state.notifications].slice(0, 20) })),
   markNotificationRead: (id) =>
     set((state) => ({
       notifications: state.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
@@ -169,7 +169,7 @@ const useAppStore = create<AppState>()(persist((set) => ({
             read: false,
             createdAt: new Date(),
           })),
-      ],
+      ].slice(0, 20),
     })),
   respondToProposal: (proposalId, memberId, status) =>
     set((state) => ({
@@ -218,7 +218,7 @@ const useAppStore = create<AppState>()(persist((set) => ({
           createdAt: new Date(),
         },
         ...state.notifications,
-      ],
+      ].slice(0, 20),
     })),
   conversations: [],
   sendMessage: (conversationId, content, attachments) =>
