@@ -28,6 +28,7 @@ function addHour(d: Date): Date {
 export default function CreateEventModal({ initialDate, existingEvent, onClose, onSubmit }: CreateEventModalProps) {
   const friends = useAppStore((s) => s.friends)
   const googleCalendar = useAppStore((s) => s.googleCalendar)
+  const localEvents = useAppStore((s) => s.localEvents)
   const isEditing = !!existingEvent
 
   const [title, setTitle] = useState(existingEvent?.title ?? '')
@@ -48,6 +49,14 @@ export default function CreateEventModal({ initialDate, existingEvent, onClose, 
   const filteredFriends = friends.filter(
     (f) => !guestIds.includes(f.id) && f.name.toLowerCase().includes(guestFilter.toLowerCase()),
   )
+
+  // Conflict detection — derive candidate window from current form state
+  const candidateStart = allDay ? new Date(`${date}T00:00:00`) : new Date(`${date}T${startTime}:00`)
+  const candidateEnd = allDay ? new Date(`${date}T23:59:59`) : new Date(`${date}T${endTime}:00`)
+  const conflictingEvents = [...localEvents, ...googleCalendar.events].filter((evt) => {
+    if (existingEvent && evt.id === existingEvent.id) return false
+    return evt.start < candidateEnd && evt.end > candidateStart
+  })
 
   const handleStartChange = (newStart: string) => {
     setStartTime(newStart)
@@ -143,6 +152,21 @@ export default function CreateEventModal({ initialDate, existingEvent, onClose, 
                   onChange={(e) => setEndTime(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Conflict warning */}
+          {conflictingEvents.length > 0 && (
+            <div className="flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+              <svg className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m-9.303 3.376a12 12 0 1021.593 0M12 15.75h.007v.008H12v-.008z" />
+              </svg>
+              <div>
+                <p className="text-sm font-semibold text-orange-700">Time conflict</p>
+                <p className="text-xs text-orange-600 mt-0.5">
+                  Overlaps with: {conflictingEvents.map((e) => e.title).join(', ')}
+                </p>
               </div>
             </div>
           )}

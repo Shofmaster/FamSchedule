@@ -38,7 +38,7 @@ export function getMemberEvents(member: Friend): CalendarEvent[] {
   ]
 }
 
-function hasConflict(events: CalendarEvent[], start: Date, end: Date): boolean {
+export function hasConflict(events: CalendarEvent[], start: Date, end: Date): boolean {
   return events.some((evt) => evt.start < end && evt.end > start)
 }
 
