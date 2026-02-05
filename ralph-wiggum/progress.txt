@@ -73,3 +73,28 @@ All 9 stories shipped and passing:
   - No test script in this project — quality gate is build + lint only
   - Pre-existing lint errors exist in backend/middleware/errorHandler.ts, backend/routes/google.ts, src/components/GifPicker.tsx, src/pages/AIPlannerPage.tsx — do not attempt to fix unless assigned
 ---
+
+## 2026-02-05 - US-002
+- Implemented source filter segmented control (All / Local / Google) inline in DashboardPage controls row
+- Added sourceFilter state typed as 'all' | 'local' | 'google', defaulting to 'all'
+- Segmented control uses ViewToggle's exact className pattern (flex bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden; active bg-orange-500 text-white; inactive text-gray-600 hover:bg-gray-50)
+- Google button only rendered when googleCalendar.isConnected is true
+- Filter chain is now: expandedEvents → colorFilteredEvents → sourceFilteredEvents → filteredEvents (search)
+- Files changed: src/pages/DashboardPage.tsx
+- **Learnings for future iterations:**
+  - Segmented controls are inlined per the PRD notes — do not extract shared components unless explicitly asked
+  - The conditional spread pattern `['all', 'local', ...(condition ? ['google'] : [])] as Type[]` works cleanly for dynamic button sets with capitalize text rendering
+  - Lint gate: all 6 errors are pre-existing (backend + GifPicker + AIPlannerPage), no new errors introduced
+---
+
+## 2026-02-05 - US-002
+- Implemented source filter segmented control (All / Local / Google) in dashboard controls row
+- Files changed: src/pages/DashboardPage.tsx (added sourceFilter state, segmented control UI, sourceFilteredEvents derivation)
+- Filter chain: color → source → search (applied in correct order per spec)
+- Google button conditionally rendered based on googleCalendar.isConnected
+- Segmented control uses inline ViewToggle className pattern (no shared component extracted per notes)
+- **Learnings for future iterations:**
+  - US-002 was partially implemented in a previous iteration's working tree; detected by checking git diff before starting
+  - The filter pipeline order (color → source → search) is established; future filter additions go between source and search or at the end
+  - capitalize CSS class handles label casing for the segmented control buttons
+---

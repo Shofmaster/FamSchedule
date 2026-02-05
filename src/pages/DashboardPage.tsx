@@ -45,10 +45,12 @@ export default function DashboardPage() {
   const expandedEvents = expandRecurrence(allEvents, rangeStart, rangeEnd)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeColors, setActiveColors] = useState<string[]>([])
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'local' | 'google'>('all')
   const colorFilteredEvents = activeColors.length === 0 ? expandedEvents : expandedEvents.filter((e) => activeColors.includes(e.color))
+  const sourceFilteredEvents = sourceFilter === 'all' ? colorFilteredEvents : colorFilteredEvents.filter((e) => e.source === sourceFilter)
   const filteredEvents = searchQuery
-    ? colorFilteredEvents.filter((e) => e.title.toLowerCase().includes(searchQuery.toLowerCase()))
-    : colorFilteredEvents
+    ? sourceFilteredEvents.filter((e) => e.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    : sourceFilteredEvents
   const [createEventDate, setCreateEventDate] = useState<Date | null>(null)
 
   // On mount, check if we already have a valid Google session
@@ -80,6 +82,19 @@ export default function DashboardPage() {
       {/* Controls row */}
       <div className="flex items-center justify-between mb-4 gap-3">
         <ViewToggle />
+        <div className="flex bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          {(['all', 'local', ...(googleCalendar.isConnected ? ['google'] : [])] as ('all' | 'local' | 'google')[]).map((src) => (
+            <button
+              key={src}
+              onClick={() => setSourceFilter(src)}
+              className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${
+                sourceFilter === src ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {src}
+            </button>
+          ))}
+        </div>
         <div className="relative flex-1 max-w-[200px]">
           <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />

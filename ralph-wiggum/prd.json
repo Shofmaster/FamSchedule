@@ -36,7 +36,7 @@
         "Frontend typecheck passes: npm run build"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Match ViewToggle's exact className pattern — do not extract a shared component, just inline the same classes in DashboardPage."
     },
     {
@@ -57,7 +57,7 @@
         "Frontend typecheck passes: npm run build"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
