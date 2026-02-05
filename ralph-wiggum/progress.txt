@@ -119,8 +119,8 @@ All 9 stories shipped and passing:
 
 ## 2026-02-05 - US-005
 - Persisted filter state (searchQuery, activeColors, sourceFilter) in URL search params
-- State initialization: useState initializers read q, colors (comma-separated), source from searchParams
-- Sync effect: writes q/colors/source to URL; omits defaults (empty q, empty colors, source=all)
+- State initialization: useState initializers read searchQuery, colors (comma-separated), source from searchParams
+- Sync effect: writes searchQuery/colors/source to URL; omits defaults (empty searchQuery, empty colors, source=all)
 - google=connected handler: now creates new URLSearchParams copy, deletes only 'google' key, preserving sibling filter params
 - No new dependencies — useSearchParams already imported
 - Files changed: src/pages/DashboardPage.tsx
