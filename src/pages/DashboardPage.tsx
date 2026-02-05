@@ -12,6 +12,7 @@ import mockEvents from '../data/mockEvents.ts'
 import CreateEventModal from '../components/CreateEventModal.tsx'
 import EventDetailPopup from '../components/EventDetailPopup.tsx'
 import { getVisibleRange, expandRecurrence } from '../utils/expandRecurrence.ts'
+import UpcomingEvents from '../components/UpcomingEvents.tsx'
 
 export default function DashboardPage() {
   const { user } = useUser()
@@ -92,6 +93,9 @@ export default function DashboardPage() {
         </div>
         <div className={`w-72 flex-shrink-0 ${showNotifications ? 'block' : 'hidden lg:block'}`}>
           <NotificationPanel notifications={notifications} onMarkRead={markNotificationRead} />
+          <div className="mt-4">
+            <UpcomingEvents events={allEvents} onEventClick={setSelectedEvent} />
+          </div>
         </div>
       </div>
 
