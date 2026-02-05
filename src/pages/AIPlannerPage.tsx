@@ -4,10 +4,11 @@ import useAppStore from '../store/useAppStore.ts'
 import type { AISlot } from '../utils/mockAI.ts'
 import { findBestPersonalSlot } from '../utils/mockAI.ts'
 import AISuggestionCard from '../components/AISuggestionCard.tsx'
-import mockEvents from '../data/mockEvents.ts'
 
 export default function AIPlannerPage() {
   const friends = useAppStore((s) => s.friends)
+  const localEvents = useAppStore((s) => s.localEvents)
+  const googleCalendar = useAppStore((s) => s.googleCalendar)
   const addLocalEvent = useAppStore((s) => s.addLocalEvent)
   const [eventName, setEventName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -16,12 +17,13 @@ export default function AIPlannerPage() {
 
   // Friends sorted by priority ascending (priority 1 = highest importance)
   const sortedFriends = [...friends].sort((a, b) => a.priority - b.priority)
+  const allEvents = [...localEvents, ...googleCalendar.events]
 
   const handleFindBestTime = () => {
     setLoading(true)
     setSuggestions([])
     setTimeout(() => {
-      const results = findBestPersonalSlot(mockEvents, sortedFriends)
+      const results = findBestPersonalSlot(allEvents, sortedFriends)
       setSuggestions(results)
       setLoading(false)
     }, 1500)
