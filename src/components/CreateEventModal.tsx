@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import useAppStore from '../store/useAppStore.ts'
 import type { CalendarEvent } from '../data/mockEvents.ts'
+import { findBestPersonalSlot } from '../utils/mockAI.ts'
 
 const COLORS = ['#F97316', '#FDBA74', '#3B82F6', '#10B981', '#8B5CF6', '#EF4444', '#6B7280', '#EC4899']
 
@@ -45,6 +46,16 @@ export default function CreateEventModal({ initialDate, existingEvent, onClose, 
   const [location, setLocation] = useState(existingEvent?.location ?? '')
   const [color, setColor] = useState(existingEvent?.color ?? '#F97316')
   const [pushToGoogle, setPushToGoogle] = useState(!isEditing)
+  const [aiDismissed, setAiDismissed] = useState(false)
+
+  // AI suggestion for new events
+  const aiSuggestion = useMemo(() => {
+    if (isEditing) return null
+    const events = [...localEvents, ...googleCalendar.events]
+    const sorted = [...friends].sort((a, b) => a.priority - b.priority)
+    const suggestions = findBestPersonalSlot(events, sorted)
+    return suggestions[0] ?? null
+  }, [isEditing, localEvents, googleCalendar.events, friends])
 
   const filteredFriends = friends.filter(
     (f) => !guestIds.includes(f.id) && f.name.toLowerCase().includes(guestFilter.toLowerCase()),
@@ -65,6 +76,15 @@ export default function CreateEventModal({ initialDate, existingEvent, onClose, 
       const endH = (h + 1) % 24
       setEndTime(`${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
     }
+  }
+
+  const handleUseAISuggestion = () => {
+    if (!aiSuggestion) return
+    setDate(toDateString(aiSuggestion.start))
+    setStartTime(formatTimeInput(aiSuggestion.start))
+    setEndTime(formatTimeInput(aiSuggestion.end))
+    setAllDay(false)
+    setAiDismissed(true)
   }
 
   const handleSubmit = () => {
@@ -109,6 +129,20 @@ export default function CreateEventModal({ initialDate, existingEvent, onClose, 
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
             />
           </div>
+
+          {/* AI time suggestion — new events only */}
+          {!isEditing && aiSuggestion && !aiDismissed && (
+            <div className="flex items-center justify-between gap-3 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+              <p className="text-xs text-orange-700">{aiSuggestion.reason}</p>
+              <button
+                type="button"
+                onClick={handleUseAISuggestion}
+                className="text-xs font-semibold text-orange-600 hover:text-orange-800 whitespace-nowrap"
+              >
+                Use this time →
+              </button>
+            </div>
+          )}
 
           {/* Date + All-day toggle */}
           <div className="flex items-end gap-4">

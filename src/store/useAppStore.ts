@@ -151,8 +151,12 @@ const useAppStore = create<AppState>()(persist((set) => ({
         }))
         set({ googleCalendar: { isConnected: true, events, lastSynced: new Date() } })
       }
-    } catch {
-      // Not connected or backend not running — leave state as is
+    } catch (err) {
+      // 401 means no valid session — clear connected state so the button reappears
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        set({ googleCalendar: { isConnected: false, events: [], lastSynced: null } })
+      }
+      // Other errors (backend not running, network) — leave state as is
     }
   },
   createSyncProposal: (proposal) =>

@@ -58,14 +58,6 @@ export default function AuthLayout() {
                   </span>
                 )}
               </NavLink>
-              <NavLink
-                to="/ai-planner"
-                className={({ isActive }) =>
-                  `text-sm font-medium transition-colors ${isActive ? 'text-orange-500' : 'text-gray-600 hover:text-orange-500'}`
-                }
-              >
-                AI Planner
-              </NavLink>
               <SignOutButton>
                 <button className="text-sm text-gray-600 hover:text-orange-500 transition-colors cursor-pointer">
                   Sign Out

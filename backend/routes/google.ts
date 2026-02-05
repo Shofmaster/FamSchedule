@@ -35,9 +35,14 @@ function createOAuth2Client() {
   return new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI)
 }
 
+function credentialsConfigured(): boolean {
+  return CLIENT_ID.length > 0 && !CLIENT_ID.startsWith('your_') &&
+         CLIENT_SECRET.length > 0 && !CLIENT_SECRET.startsWith('your_')
+}
+
 // GET /api/google/status — reports credential and session state
 router.get('/status', (req: Request, res: Response) => {
-  const configured = CLIENT_ID.length > 0 && CLIENT_SECRET.length > 0
+  const configured = credentialsConfigured()
   const sessionId = req.cookies?.googleSessionId
   const connected = !!(sessionId && tokenStore[sessionId])
   res.json({ configured, connected })
@@ -45,7 +50,7 @@ router.get('/status', (req: Request, res: Response) => {
 
 // GET /api/google/auth — returns the Google OAuth consent URL
 router.get('/auth', (_req: Request, res: Response) => {
-  if (!CLIENT_ID || !CLIENT_SECRET) {
+  if (!credentialsConfigured()) {
     return res.status(500).json({ error: 'Google OAuth credentials not configured — set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local' })
   }
   const oauth2Client = createOAuth2Client()
@@ -60,22 +65,27 @@ router.get('/auth', (_req: Request, res: Response) => {
 router.get('/callback', async (req: Request, res: Response) => {
   const { code } = req.query
   if (!code || typeof code !== 'string') {
-    return res.status(400).json({ error: 'Missing authorization code' })
+    return res.redirect('http://localhost:5173/dashboard?google=error')
   }
 
-  const oauth2Client = createOAuth2Client()
-  const { tokens } = await oauth2Client.getToken(code)
+  try {
+    const oauth2Client = createOAuth2Client()
+    const { tokens } = await oauth2Client.getToken(code)
 
-  const sessionId = uuidv4()
-  tokenStore[sessionId] = {
-    access_token: tokens.access_token || '',
-    refresh_token: tokens.refresh_token || '',
-    expiry_date: tokens.expiry_date || 0,
+    const sessionId = uuidv4()
+    tokenStore[sessionId] = {
+      access_token: tokens.access_token || '',
+      refresh_token: tokens.refresh_token || '',
+      expiry_date: tokens.expiry_date || 0,
+    }
+    saveTokens()
+
+    res.cookie('googleSessionId', sessionId, { httpOnly: true, path: '/' })
+    res.redirect('http://localhost:5173/dashboard?google=connected')
+  } catch (err) {
+    console.error('Google OAuth token exchange failed:', err)
+    res.redirect('http://localhost:5173/dashboard?google=error')
   }
-  saveTokens()
-
-  res.cookie('googleSessionId', sessionId, { httpOnly: true, path: '/' })
-  res.redirect('http://localhost:5173/dashboard?google=connected')
 })
 
 // Returns an authenticated OAuth2 client for the session, refreshing the token if expired.
@@ -165,7 +175,7 @@ router.post('/events', async (req: Request, res: Response) => {
 })
 
 // PUT /api/google/events/:id — updates an existing event on Google Calendar
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/events/:id', async (req: Request, res: Response) => {
   const oauth2Client = await getValidClient(req)
   if (!oauth2Client) {
     return res.status(401).json({ error: 'Not connected to Google Calendar' })
@@ -198,7 +208,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 })
 
 // DELETE /api/google/events/:id — removes an event from Google Calendar
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/events/:id', async (req: Request, res: Response) => {
   const oauth2Client = await getValidClient(req)
   if (!oauth2Client) {
     return res.status(401).json({ error: 'Not connected to Google Calendar' })

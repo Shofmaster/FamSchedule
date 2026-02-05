@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useUser } from '@clerk/react'
 import { useSearchParams } from 'react-router-dom'
 import axios from 'axios'
+import { findBestPersonalSlot, type AISlot } from '../utils/mockAI.ts'
 import ViewToggle from '../components/ViewToggle.tsx'
 import CalendarGrid from '../components/CalendarGrid.tsx'
 import NotificationPanel from '../components/NotificationPanel.tsx'
@@ -59,21 +60,34 @@ export default function DashboardPage() {
     ? sourceFilteredEvents.filter((e) => e.title.toLowerCase().includes(searchQuery.toLowerCase()))
     : sourceFilteredEvents
   const [createEventDate, setCreateEventDate] = useState<Date | null>(null)
+  const [aiSuggestion, setAiSuggestion] = useState<AISlot | null>(null)
 
   // On mount, check if we already have a valid Google session
   useEffect(() => {
     syncGoogleEvents()
   }, [syncGoogleEvents])
 
-  // After OAuth redirect, detect ?google=connected and sync
+  // After OAuth redirect, detect ?google=connected or ?google=error
   useEffect(() => {
-    if (searchParams.get('google') === 'connected') {
+    const googleParam = searchParams.get('google')
+    if (googleParam === 'connected') {
       const next = new URLSearchParams(searchParams)
       next.delete('google')
       setSearchParams(next)
       syncGoogleEvents()
+    } else if (googleParam === 'error') {
+      const next = new URLSearchParams(searchParams)
+      next.delete('google')
+      setSearchParams(next)
+      addNotification({
+        id: `notif-google-err-${Date.now()}`,
+        fromName: 'Google Calendar',
+        message: 'OAuth handshake failed. Double-check your Google OAuth credentials in .env.local and try again.',
+        read: false,
+        createdAt: new Date(),
+      })
     }
-  }, [searchParams, setSearchParams, syncGoogleEvents])
+  }, [searchParams, setSearchParams, syncGoogleEvents, addNotification])
 
   // Persist filter state to URL search params
   useEffect(() => {
@@ -91,6 +105,30 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-gray-900">Welcome back, {user?.firstName || 'there'}!</h1>
         <p className="text-gray-500 mt-1">Here's your schedule for today.</p>
       </div>
+
+      {/* AI suggestion after event removal */}
+      {aiSuggestion && (
+        <div className="mb-4 flex items-center justify-between bg-orange-50 border border-orange-200 rounded-lg px-4 py-2.5">
+          <div>
+            <span className="text-sm font-semibold text-orange-700">AI Suggestion</span>
+            <p className="text-xs text-orange-600 mt-0.5">{aiSuggestion.reason}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setCreateEventDate(aiSuggestion.start)
+                setAiSuggestion(null)
+              }}
+              className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold rounded-lg transition-colors"
+            >
+              Schedule
+            </button>
+            <button onClick={() => setAiSuggestion(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Google Calendar connect */}
       <div className="mb-4">
@@ -188,8 +226,15 @@ export default function DashboardPage() {
                 })
               }
             }
-            removeLocalEvent(selectedEvent.id.split('__r')[0])
+            const eventId = selectedEvent.id.split('__r')[0]
+            removeLocalEvent(eventId)
             setSelectedEvent(null)
+
+            // AI suggests a time for the freed slot
+            const remaining = [...localEvents.filter((e) => e.id !== eventId), ...googleCalendar.events]
+            const sorted = [...friends].sort((a, b) => a.priority - b.priority)
+            const suggestions = findBestPersonalSlot(remaining, sorted)
+            if (suggestions.length > 0) setAiSuggestion(suggestions[0])
           }}
         />
       )}
