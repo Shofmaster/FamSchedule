@@ -91,13 +91,14 @@ All 9 stories shipped and passing:
 - Created src/components/MiniMonthNav.tsx — compact month calendar in sidebar
 - Reads selectedDate / setSelectedDate from useAppStore (no props)
 - Internal viewMonth/viewYear state controlled by ◀ ▶ arrows
-- Day cells grid: in-month days clickable, out-of-month cells rendered as empty spacers
-- Today ring (ring-2 ring-orange-500 ring-offset-1); selectedDate bg-orange-500 overrides today ring
+- Day cells grid: 42-cell (6×7) layout; in-month days clickable, out-of-month days rendered with dimmed text (text-gray-300) and no onClick handler
+- Today ring (ring-2 ring-orange-500 ring-offset-1); selectedDate bg-orange-500 text-white font-bold overrides today ring (checked first in className logic)
 - Click preserves selectedDate hours/minutes
 - Frosted-glass card wrapper matches sidebar pattern
 - Rendered at top of sidebar column, before NotificationPanel
 - Files changed: src/components/MiniMonthNav.tsx (new), src/pages/DashboardPage.tsx (import + sidebar placement)
 - **Learnings for future iterations:**
-  - Out-of-month cells: spec says "rendered but dimmed" — implemented as empty spacers (h-6 divs) to avoid rendering stale prev/next month dates that would need click guards
+  - Out-of-month cells: spec says "rendered but dimmed" — render actual prev/next month day numbers with text-gray-300 and no click handler
   - viewMonth state needs both month and year tracked separately for year boundary transitions
+  - 42-cell grid: fill prefix with prev month days (descending from firstDayOfWeek), suffix with next month days
 ---
