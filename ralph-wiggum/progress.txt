@@ -86,3 +86,18 @@ All 9 stories shipped and passing:
   - The conditional spread pattern `['all', 'local', ...(condition ? ['google'] : [])] as Type[]` works cleanly for dynamic button sets with capitalize text rendering
   - Lint gate: all 6 errors are pre-existing (backend + GifPicker + AIPlannerPage), no new errors introduced
 ---
+
+## 2026-02-05 - US-003
+- Created src/components/MiniMonthNav.tsx — compact month calendar in sidebar
+- Reads selectedDate / setSelectedDate from useAppStore (no props)
+- Internal viewMonth/viewYear state controlled by ◀ ▶ arrows
+- Day cells grid: in-month days clickable, out-of-month cells rendered as empty spacers
+- Today ring (ring-2 ring-orange-500 ring-offset-1); selectedDate bg-orange-500 overrides today ring
+- Click preserves selectedDate hours/minutes
+- Frosted-glass card wrapper matches sidebar pattern
+- Rendered at top of sidebar column, before NotificationPanel
+- Files changed: src/components/MiniMonthNav.tsx (new), src/pages/DashboardPage.tsx (import + sidebar placement)
+- **Learnings for future iterations:**
+  - Out-of-month cells: spec says "rendered but dimmed" — implemented as empty spacers (h-6 divs) to avoid rendering stale prev/next month dates that would need click guards
+  - viewMonth state needs both month and year tracked separately for year boundary transitions
+---
