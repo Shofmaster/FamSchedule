@@ -42,6 +42,10 @@ export default function DashboardPage() {
   ]
   const [rangeStart, rangeEnd] = getVisibleRange(calendarView, selectedDate)
   const expandedEvents = expandRecurrence(allEvents, rangeStart, rangeEnd)
+  const [searchQuery, setSearchQuery] = useState('')
+  const filteredEvents = searchQuery
+    ? expandedEvents.filter((e) => e.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    : expandedEvents
   const [createEventDate, setCreateEventDate] = useState<Date | null>(null)
 
   // On mount, check if we already have a valid Google session
@@ -71,8 +75,20 @@ export default function DashboardPage() {
       </div>
 
       {/* Controls row */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3">
         <ViewToggle />
+        <div className="relative flex-1 max-w-[200px]">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search events…"
+            className="w-full pl-8 pr-3 py-1.5 rounded-full border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white"
+          />
+        </div>
         <button
           onClick={() => setShowNotifications(!showNotifications)}
           className="relative p-2 hover:bg-white/60 rounded-lg transition-colors text-xl"
@@ -89,7 +105,7 @@ export default function DashboardPage() {
       {/* Main layout */}
       <div className="flex gap-6">
         <div className="flex-1 min-w-0">
-          <CalendarGrid events={expandedEvents} onDayClick={setCreateEventDate} onEventClick={setSelectedEvent} />
+          <CalendarGrid events={filteredEvents} onDayClick={setCreateEventDate} onEventClick={setSelectedEvent} />
         </div>
         <div className={`w-72 flex-shrink-0 ${showNotifications ? 'block' : 'hidden lg:block'}`}>
           <NotificationPanel notifications={notifications} onMarkRead={markNotificationRead} />
