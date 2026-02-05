@@ -1,95 +1,150 @@
 {
   "project": "FamSchedule",
-  "branchName": "ralph/v1.3-cleanup-and-fixes",
-  "description": "FamSchedule v1.3 — five cleanup and fix areas: strip all placeholder/mock data, add message delete, replace 3-tier importance with 5-tier schedule priority, harden Google Calendar OAuth so it fails fast with useful errors, and fix the GIF picker so it surfaces API errors instead of silently going blank.",
+  "branchName": "ralph/v1.4-features",
+  "description": "FamSchedule v1.4 — nine stories: recurring-event expansion on the calendar, delete-conversation UX, notification cap, Today jump button, AI planner wired to real events, conflict warning on create/edit, month-view day-events popover, upcoming-events sidebar widget, and event search bar.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Strip placeholder data: notifications, friends, groups, and conversations",
-      "description": "As a new user, I want the app to start with empty state instead of hardcoded demo people and messages so the product feels real and does not confuse real users with fake names.",
+      "title": "Expand recurring events into visible-range instances on the calendar",
+      "description": "As a user, I want recurring events (daily, weekly, monthly, yearly) to appear on every matching day in the calendar instead of only on their creation date.",
       "acceptanceCriteria": [
-        "In src/store/useAppStore.ts the notifications initial value is changed to []",
-        "In src/store/useAppStore.ts the friends initial value is changed to []",
-        "In src/store/useAppStore.ts the groups initial value is changed to []",
-        "In src/store/useAppStore.ts the conversations initial value is changed to []",
+        "src/utils/expandRecurrence.ts exists and exports getVisibleRange and expandRecurrence",
+        "DashboardPage imports both, computes [rangeStart, rangeEnd] from calendarView + selectedDate, and passes expandRecurrence(allEvents, rangeStart, rangeEnd) to CalendarGrid",
+        "Edit and delete on a recurring instance resolve the base event ID by splitting on '__r'",
+        "CalendarGrid MonthView shows titled event pills (not dots), max 2 visible, +N more overflow link",
         "Frontend typecheck passes: npm run build"
       ],
       "priority": 1,
       "passes": true,
-      "notes": ""
+      "notes": "expandRecurrence.ts was already written; this story verified + committed it."
     },
     {
       "id": "US-002",
-      "title": "Remove mock calendar events and the auto-reply simulation from MessagingPage",
-      "description": "As a developer, I want the calendar to stop shipping 6 fake events and the messaging page to stop auto-replying so the app behaves like a real product.",
+      "title": "Add deleteConversation action and trash button in conversation header",
+      "description": "As a user, I want to delete an entire conversation so I can clean up my message list.",
       "acceptanceCriteria": [
-        "In src/data/mockEvents.ts the exported mockEvents array is changed to []. The CalendarEvent interface and the weekday helper stay — do not delete the file, only empty the array.",
-        "In src/pages/MessagingPage.tsx the MOCK_REPLIES constant is deleted entirely",
-        "The typingConvId state, typingTimeout ref, replyTimeout ref, and the typing-indicator JSX block (the three-dot bounce animation) are all removed",
-        "The auto-reply block at the end of handleSend — everything after the sendMessage() call that references replier, replyContent, conv.participantIds, friend, or either timeout ref — is removed",
-        "No unused imports or variables remain after the deletions",
+        "useAppStore AppState declares deleteConversation: (conversationId: string) => void",
+        "The action filters conversations by ID, matching the removeLocalEvent pattern",
+        "MessagingPage reads deleteConversation and wires it to a handler with window.confirm",
+        "A trash-can icon button appears in the active-conversation header (ml-auto)",
+        "After deletion setActiveId(null) is called so the empty state renders",
         "Frontend typecheck passes: npm run build"
       ],
       "priority": 1,
       "passes": true,
-      "notes": ""
+      "notes": "Code was already written; this story verified + committed it."
     },
     {
       "id": "US-003",
-      "title": "Replace 3-tier importance (low / medium / high) with 5-tier schedule priority",
-      "description": "As a user, I want events to carry one of five priority levels so I can clearly communicate how fixed each commitment is.",
+      "title": "Cap notifications at 20, auto-dismiss older",
+      "description": "As a user, I want the notification list to stay manageable so old notifications do not accumulate indefinitely.",
       "acceptanceCriteria": [
-        "In src/data/mockEvents.ts the CalendarEvent importance type changes from 'low' | 'medium' | 'high' to 'non-negotiable' | 'highly-important' | 'important' | 'flexible' | 'soft'",
-        "In src/components/CreateEventModal.tsx the importance state type and the segmented-control button array use the five new values in this order: non-negotiable, highly-important, important, flexible, soft. The default value is 'important'. Labels render as: Non-Negotiable, Highly Important, Important, Flexible, Soft.",
-        "In src/components/EventDetailPopup.tsx a new line is added in the details section that displays the event's importance using the same human-readable labels. It renders only when event.importance is set.",
-        "grep -rn '\"low\"\\|\"medium\"\\|\"high\"' src/ finds no remaining references to the old importance values in .ts or .tsx files",
+        "addNotification action applies .slice(0, 20) after prepending",
+        "createSyncProposal inline notification array applies .slice(0, 20)",
+        "addTextInvite inline notification array applies .slice(0, 20)",
         "Frontend typecheck passes: npm run build"
       ],
       "priority": 2,
       "passes": true,
-      "notes": ""
+      "notes": "Three notification-mutation sites, not one. All three capped."
     },
     {
       "id": "US-004",
-      "title": "Add delete-message action and a per-bubble dismiss button for own messages",
-      "description": "As a user, I want to delete messages I sent so I can correct mistakes or remove something I no longer want visible in the conversation.",
+      "title": "Add Today jump button to calendar navigation header",
+      "description": "As a user, I want a one-click way to return to today's date when I have navigated away.",
       "acceptanceCriteria": [
-        "src/store/useAppStore.ts gains a deleteMessage(conversationId: string, messageId: string) action that filters the matching message out of the target conversation's messages array. It is declared in the AppState interface and wired in the create() call following the same pattern as removeLocalEvent.",
-        "In src/pages/MessagingPage.tsx each message bubble where senderId === 'you' gains a small delete button. On desktop it appears on hover (use a group-hover pattern on the wrapper div). It is positioned at the top-right of the bubble with a trash-can SVG icon or an x symbol, styled to not visually clash with the orange bubble.",
-        "Tapping the delete button calls deleteMessage(activeId, msg.id). The message disappears from the thread immediately with no confirmation dialog.",
-        "Messages where senderId !== 'you' do not have any delete button",
+        "A 'Today' pill button appears in the CalendarGrid nav header next to the date label",
+        "The button is hidden when the current view already includes today (view-aware: day checks date, week checks Sun–Sat range, month checks month+year)",
+        "Clicking calls setSelectedDate(new Date())",
+        "Styled as px-2 py-0.5 text-xs text-orange-600 bg-orange-50 rounded-full",
         "Frontend typecheck passes: npm run build"
       ],
       "priority": 3,
       "passes": true,
-      "notes": ""
+      "notes": "isToday uses isSameDay for day view, getWeekDays().some() for week view."
     },
     {
       "id": "US-005",
-      "title": "Harden Google Calendar OAuth: guard against missing env vars, add /status endpoint",
-      "description": "As a developer, I want the Google Calendar connection to fail fast with a readable error when credentials are not configured, and to have a status endpoint I can hit to diagnose connectivity problems.",
+      "title": "Wire real localEvents and googleCalendar events into AI Planner",
+      "description": "As a user, I want the AI Planner to consider my actual calendar when suggesting times instead of treating my schedule as empty.",
       "acceptanceCriteria": [
-        "In backend/server.ts the dotenv.config call resolves its path using path.resolve(__dirname, '..', '.env.local') so the file is found regardless of which directory the process is started from. Currently it uses the relative string '../.env.local' which resolves against cwd, not __dirname.",
-        "In backend/routes/google.ts GET /auth returns a 500 JSON response { error: 'Google OAuth credentials not configured — set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local' } when CLIENT_ID or CLIENT_SECRET is an empty string, instead of generating a broken Google consent URL",
-        "A new GET /api/google/status route is added to the google router. It returns JSON { configured: boolean, connected: boolean }. configured is true when both CLIENT_ID and CLIENT_SECRET are non-empty strings. connected is true when the request has a valid googleSessionId cookie that maps to an entry in tokenStore.",
-        "Backend typecheck passes: cd backend && npx tsc --noEmit",
+        "AIPlannerPage no longer imports mockEvents",
+        "It reads localEvents and googleCalendar from useAppStore",
+        "allEvents = [...localEvents, ...googleCalendar.events] is computed",
+        "findBestPersonalSlot is called with allEvents",
+        "No unused imports or variables remain",
         "Frontend typecheck passes: npm run build"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Vite proxy for /api already exists in vite.config.ts — do not add a duplicate. The backend must be running on port 3001 for the proxy to forward to."
+      "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Fix GIF picker: remove hardcoded API key, surface missing-key and fetch-error states",
-      "description": "As a user, I want the GIF picker to show a clear message when it cannot load GIFs instead of silently displaying an empty grid.",
+      "title": "Show conflict warning banner in create/edit event modal",
+      "description": "As a user, I want to see which existing events overlap when I am creating or editing an event so I can avoid double-booking.",
       "acceptanceCriteria": [
-        "In src/components/GifPicker.tsx the hardcoded fallback Giphy key (the || 'b5MfEMnkfbCxPsEJMG5FiVEOdHEXG7oZ' string) is removed. GIPHY_API_KEY is set only from import.meta.env.VITE_GIPHY_API_KEY with no || fallback.",
-        "When VITE_GIPHY_API_KEY is undefined or an empty string the component renders a visible message — something like 'GIF search is not configured. Add VITE_GIPHY_API_KEY to your .env.local file.' — and makes no fetch calls.",
-        "When a Giphy fetch returns a non-2xx status or throws a network error the component sets an error state and renders a visible error message (e.g. 'Could not load GIFs — check your API key or network connection.') instead of silently showing an empty grid.",
+        "hasConflict is exported from src/utils/mockAI.ts",
+        "CreateEventModal reads localEvents from the store",
+        "conflictingEvents is computed by filtering [...localEvents, ...googleCalendar.events] for overlap with the candidate window, excluding self when editing",
+        "An orange warning banner renders when conflictingEvents is non-empty, showing 'Time conflict' and a comma-separated list of titles",
+        "The warning appears after the start/end time row and updates as form values change",
         "Frontend typecheck passes: npm run build"
       ],
       "priority": 3,
+      "passes": true,
+      "notes": "Candidate start/end parsed with same new Date(`${date}T${time}:00`) as handleSubmit to ensure apples-to-apples comparison."
+    },
+    {
+      "id": "US-007",
+      "title": "Month view day-events popover",
+      "description": "As a user, I want to see all events for a day in month view without leaving the month, and to open event details or create a new event from that popover.",
+      "acceptanceCriteria": [
+        "Clicking a day cell in month view opens a popover (not CreateEventModal directly)",
+        "Clicking '+N more' also opens the popover for that day",
+        "The popover shows a full day label, event list with colored dot + title + time, and a '+ New event' button",
+        "Clicking an event closes the popover and calls onEventClick",
+        "Clicking '+ New event' closes the popover and calls onDayClick with the day at 9 AM",
+        "Clicking outside the popover closes it (backdrop div)",
+        "onMoreClick prop removed from MonthView; unused setCalendarView removed from CalendarGrid",
+        "CalendarGrid outer wrapper uses overflow-visible in month view",
+        "useState imported from 'react' in CalendarGrid.tsx",
+        "Frontend typecheck passes: npm run build"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Popover uses fixed-position centered card (same pattern as other modals). Backdrop div on z-40 catches outside clicks."
+    },
+    {
+      "id": "US-008",
+      "title": "Upcoming events widget in dashboard sidebar",
+      "description": "As a user, I want to see my next few events at a glance in the sidebar without switching views.",
+      "acceptanceCriteria": [
+        "src/components/UpcomingEvents.tsx exists with events and onEventClick props",
+        "Filters to events starting today through 7 days ahead, sorts by start, shows first 5",
+        "Each row has a colored circle, title (truncated), and formatted time ('Today, …' or 'Feb 6, …')",
+        "Empty state shows 'No upcoming events'",
+        "Card uses frosted-glass style matching NotificationPanel",
+        "DashboardPage renders it below NotificationPanel, passing allEvents (pre-expansion) and onEventClick={setSelectedEvent}",
+        "Frontend typecheck passes: npm run build"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "allEvents (not expandedEvents) passed so recurring events show once at base date."
+    },
+    {
+      "id": "US-009",
+      "title": "Search bar that filters calendar events by title",
+      "description": "As a user, I want to type into a search box and see only matching events on the calendar in real time.",
+      "acceptanceCriteria": [
+        "A search input appears in the DashboardPage controls row between ViewToggle and the notification bell",
+        "The input has a magnifying-glass SVG icon on the left, styled rounded-full with focus:ring-orange-400",
+        "searchQuery state filters expandedEvents by case-insensitive title match",
+        "filteredEvents is passed to CalendarGrid",
+        "Clearing the input restores all events",
+        "Frontend typecheck passes: npm run build"
+      ],
+      "priority": 5,
       "passes": true,
       "notes": ""
     }

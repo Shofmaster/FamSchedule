@@ -18,20 +18,29 @@ Started: 2026-02-04 — v1.3 cleanup-and-fixes
 - Frontend build + typecheck command: npm run build (runs tsc -b && vite build)
 - Google OAuth helper: getValidClient(req) in backend/routes/google.ts returns an authenticated OAuth2 client or null. Every Google Calendar route must call it first and return 401 if null.
 - Notification pattern: addNotification({ id: `notif-<unique>`, fromName: 'Source', message: 'text', read: false, createdAt: new Date() })
-- DashboardPage assembles allEvents = [...mockEvents, ...googleCalendar.events (deduped by pushedGoogleIds), ...localEvents] and passes to CalendarGrid. After US-002 mockEvents will be [].
-- CalendarGrid receives events[] and onDayClick. DayView + WeekView render event blocks as absolutely positioned colored divs with the event title. MonthView renders events as 1.5px colored dots only — dots are NOT click targets.
+- DashboardPage assembles allEvents = [...mockEvents, ...googleCalendar.events (deduped by pushedGoogleIds), ...localEvents]. mockEvents is []. expandedEvents = expandRecurrence(allEvents, rangeStart, rangeEnd). filteredEvents applies searchQuery filter. filteredEvents flows to CalendarGrid.
+- CalendarGrid receives events[] and onDayClick. DayView + WeekView render event blocks as absolutely positioned colored divs. MonthView renders titled event pills (max 2 visible) + "+N more" overflow link. Clicking a day cell or "+N more" opens a fixed-position popover (not CreateEventModal directly).
+- Frosted-glass card pattern: bg-white/90 backdrop-blur-sm shadow-sm rounded-xl border border-gray-200 overflow-hidden — used by CalendarGrid, NotificationPanel, UpcomingEvents, AISuggestionCard. All sidebar widgets MUST use this exact class set.
 - Vite proxy is already configured in vite.config.ts: /api → http://localhost:3001 with changeOrigin: true. Do NOT add a duplicate.
 - Axios is used for all HTTP calls from the frontend. Backend runs on port 3001.
 - Express 5 route params: req.params.id is typed as string by default. For async route handlers, Express 5 catches rejected promises automatically — no need to wrap in try/catch just for error forwarding.
 - Google Calendar API: calendar.events.insert (create), calendar.events.update (edit), calendar.events.delete (remove). All use calendarId: 'primary'.
 - Token store is file-backed: backend/routes/google.ts reads/writes tokens.json via loadTokens() / saveTokens(). tokenStore is a module-level Record<string, TokenBundle>.
-- EventDetailPopup currently does NOT display importance — US-003 adds that line.
-- MessagingPage auto-reply system uses MOCK_REPLIES, typingConvId state, typingTimeout + replyTimeout refs — US-002 removes all of these.
-- dotenv in backend/server.ts now loads via path.resolve(__dirname, '..', '.env.local') — fixed in US-005.
-- deleteMessage(conversationId, messageId) action added to store; trash button appears on hover for own messages (US-004).
-- GifPicker no longer ships a hardcoded Giphy key. Missing key → "not configured" message; fetch failure → visible error (US-006).
-- GET /api/google/status returns { configured, connected } for OAuth diagnostics (US-005).
-- GET /api/google/auth guards against empty CLIENT_ID / CLIENT_SECRET with a 500 JSON error (US-005).
+- dotenv in backend/server.ts loads via path.resolve(__dirname, '..', '.env.local') — fixed in v1.3 US-005.
+- deleteMessage(conversationId, messageId) action in store; trash button on hover for own messages (v1.3 US-004).
+- deleteConversation(conversationId) action in store; trash button in conversation header with confirm dialog (v1.4 US-002).
+- GifPicker no longer ships a hardcoded Giphy key. Missing key → "not configured" message; fetch failure → visible error (v1.3 US-006).
+- GET /api/google/status returns { configured, connected } for OAuth diagnostics (v1.3 US-005).
+- GET /api/google/auth guards against empty CLIENT_ID / CLIENT_SECRET with a 500 JSON error (v1.3 US-005).
+- expandRecurrence.ts exports getVisibleRange(view, date) → [Date, Date] and expandRecurrence(events, start, end) → CalendarEvent[]. Recurring instances get IDs like "originalId__rN". DashboardPage splits on '__r' to resolve base IDs for edit/delete. (v1.4 US-001)
+- Notification cap: all three notification-mutation paths in the store (addNotification, createSyncProposal, addTextInvite) apply .slice(0, 20). They do NOT all go through addNotification — two build arrays inline. (v1.4 US-003)
+- hasConflict in mockAI.ts is exported. CreateEventModal does its own .filter() (not hasConflict) because it needs the conflicting event objects for the warning message, not just a boolean. (v1.4 US-006)
+- CalendarGrid "Today" button: isToday is view-aware. Day → isSameDay. Week → getWeekDays(selectedDate).some(isSameDay). Month → month+year comparison. Both helper functions already exist in CalendarGrid. (v1.4 US-004)
+- CalendarGrid MonthView popover: fixed-position centered card (z-50) + backdrop div (z-40, fixed inset-0). Backdrop onClick closes. popoverDay state is internal to MonthView. Popover data (popEvents, popDayLabel) computed unconditionally — cheap .filter(), no IIFE needed. (v1.4 US-007)
+- CalendarGrid outer wrapper toggles overflow: overflow-visible when calendarView === 'month', overflow-hidden otherwise. This keeps rounded-corner clipping for day/week scrolling views while allowing the month popover to render freely. (v1.4 US-007)
+- UpcomingEvents widget receives allEvents (pre-expansion) so recurring events appear once at their base date only. If the base date is in the past but recurrences are upcoming, they will not show — acceptable per spec. (v1.4 US-008)
+- DashboardPage search: searchQuery state → case-insensitive title filter over expandedEvents → filteredEvents flows to CalendarGrid. Search does not affect event creation (onDayClick is independent). (v1.4 US-009)
+- IDE diagnostics from the PostToolUse:Edit hook are frequently stale — they do not reflect edits that just completed. Always trust `npm run build` as the source of truth, not the IDE warnings.
 
 ## v1.3 Completion — 2026-02-04
 All 6 stories shipped and passing:
@@ -41,4 +50,16 @@ All 6 stories shipped and passing:
   US-004 Add deleteMessage action + hover trash button on own messages
   US-005 Harden Google OAuth: __dirname dotenv, /status endpoint, /auth 500 guard
   US-006 GIF picker: remove hardcoded key, surface missing-key + fetch-error states
+
+## v1.4 Completion — 2026-02-04
+All 9 stories shipped and passing:
+  US-001 Expand recurring events into visible-range instances
+  US-002 Add deleteConversation action and trash button in conversation header
+  US-003 Cap notifications array at 20, auto-dismiss older
+  US-004 Add Today jump button to calendar nav header
+  US-005 Wire localEvents + googleCalendar into AI Planner
+  US-006 Show conflict warning banner in create/edit modal
+  US-007 Month view day-events popover
+  US-008 Upcoming events widget in dashboard sidebar
+  US-009 Search bar that filters calendar events by title
 ---
