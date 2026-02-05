@@ -236,12 +236,26 @@ export default function CalendarGrid({ events, onDayClick, onEventClick }: Calen
     header = `${MONTH_NAMES[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`
   }
 
+  const today = new Date()
+  const isToday = (() => {
+    if (calendarView === 'day') return isSameDay(selectedDate, today)
+    if (calendarView === 'week') return getWeekDays(selectedDate).some((d) => isSameDay(d, today))
+    return selectedDate.getMonth() === today.getMonth() && selectedDate.getFullYear() === today.getFullYear()
+  })()
+
   return (
     <div className="bg-white/90 backdrop-blur-sm shadow-sm rounded-xl border border-gray-200 flex flex-col overflow-hidden">
       {/* Nav header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <button onClick={() => navigate(-1)} className="p-1 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 text-lg">◀</button>
-        <span className="text-sm font-semibold text-gray-900">{header}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-gray-900">{header}</span>
+          {!isToday && (
+            <button onClick={() => setSelectedDate(new Date())} className="px-2 py-0.5 text-xs font-semibold text-orange-600 bg-orange-50 rounded-full hover:bg-orange-100 transition-colors">
+              Today
+            </button>
+          )}
+        </div>
         <button onClick={() => navigate(1)} className="p-1 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 text-lg">▶</button>
       </div>
 
