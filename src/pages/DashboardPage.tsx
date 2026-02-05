@@ -11,6 +11,7 @@ import type { CalendarEvent } from '../data/mockEvents.ts'
 import mockEvents from '../data/mockEvents.ts'
 import CreateEventModal from '../components/CreateEventModal.tsx'
 import EventDetailPopup from '../components/EventDetailPopup.tsx'
+import { getVisibleRange, expandRecurrence } from '../utils/expandRecurrence.ts'
 
 export default function DashboardPage() {
   const { user } = useUser()
@@ -26,6 +27,8 @@ export default function DashboardPage() {
   const removeLocalEvent = useAppStore((s) => s.removeLocalEvent)
   const addNotification = useAppStore((s) => s.addNotification)
   const friends = useAppStore((s) => s.friends)
+  const calendarView = useAppStore((s) => s.calendarView)
+  const selectedDate = useAppStore((s) => s.selectedDate)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
   const updateLocalEvent = useAppStore((s) => s.updateLocalEvent)
@@ -36,6 +39,8 @@ export default function DashboardPage() {
     ...googleCalendar.events.filter((e) => !pushedGoogleIds.has(e.id)),
     ...localEvents,
   ]
+  const [rangeStart, rangeEnd] = getVisibleRange(calendarView, selectedDate)
+  const expandedEvents = expandRecurrence(allEvents, rangeStart, rangeEnd)
   const [createEventDate, setCreateEventDate] = useState<Date | null>(null)
 
   // On mount, check if we already have a valid Google session
@@ -83,7 +88,7 @@ export default function DashboardPage() {
       {/* Main layout */}
       <div className="flex gap-6">
         <div className="flex-1 min-w-0">
-          <CalendarGrid events={allEvents} onDayClick={setCreateEventDate} onEventClick={setSelectedEvent} />
+          <CalendarGrid events={expandedEvents} onDayClick={setCreateEventDate} onEventClick={setSelectedEvent} />
         </div>
         <div className={`w-72 flex-shrink-0 ${showNotifications ? 'block' : 'hidden lg:block'}`}>
           <NotificationPanel notifications={notifications} onMarkRead={markNotificationRead} />
@@ -95,7 +100,7 @@ export default function DashboardPage() {
           event={selectedEvent}
           friends={friends}
           onClose={() => setSelectedEvent(null)}
-          onEdit={() => { setEditingEvent(selectedEvent); setSelectedEvent(null) }}
+          onEdit={() => { setEditingEvent(allEvents.find((e) => e.id === selectedEvent.id.split('__r')[0]) ?? selectedEvent); setSelectedEvent(null) }}
           onDelete={async () => {
             if (selectedEvent.googleEventId && googleCalendar.isConnected) {
               try {
@@ -110,7 +115,7 @@ export default function DashboardPage() {
                 })
               }
             }
-            removeLocalEvent(selectedEvent.id)
+            removeLocalEvent(selectedEvent.id.split('__r')[0])
             setSelectedEvent(null)
           }}
         />

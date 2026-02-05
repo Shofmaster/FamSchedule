@@ -159,7 +159,7 @@ function WeekView({ selectedDate, events, onDayClick, onEventClick }: { selected
   )
 }
 
-function MonthView({ selectedDate, events, onDayClick }: { selectedDate: Date; events: CalendarEvent[]; onDayClick?: (date: Date) => void }) {
+function MonthView({ selectedDate, events, onDayClick, onEventClick, onMoreClick }: { selectedDate: Date; events: CalendarEvent[]; onDayClick?: (date: Date) => void; onEventClick?: (event: CalendarEvent) => void; onMoreClick?: (date: Date) => void }) {
   const grid = getMonthGrid(selectedDate)
   const currentMonth = selectedDate.getMonth()
   const today = new Date()
@@ -175,20 +175,35 @@ function MonthView({ selectedDate, events, onDayClick }: { selectedDate: Date; e
         {grid.map((day, i) => {
           const inMonth = day.getMonth() === currentMonth
           const isToday = isSameDay(day, today)
-          const dots = events.filter((e) => isSameDay(e.start, day)).slice(0, 3)
+          const dayEvents = events.filter((e) => isSameDay(e.start, day))
+          const visible = dayEvents.slice(0, 2)
+          const remaining = dayEvents.length - visible.length
 
           return (
-            <div key={i} onClick={() => { const d = new Date(day); d.setHours(9, 0, 0, 0); onDayClick?.(d) }} className={`min-h-[64px] p-1.5 border-b border-r border-gray-100 cursor-pointer hover:bg-orange-50 transition-colors ${inMonth ? 'bg-white' : 'bg-gray-50'}`}>
+            <div key={i} onClick={() => { const d = new Date(day); d.setHours(9, 0, 0, 0); onDayClick?.(d) }} className={`min-h-[80px] p-1.5 border-b border-r border-gray-100 cursor-pointer hover:bg-orange-50 transition-colors ${inMonth ? 'bg-white' : 'bg-gray-50'}`}>
               <div className={`text-xs font-medium ${isToday ? 'text-orange-500 font-bold' : inMonth ? 'text-gray-900' : 'text-gray-400'}`}>
                 {day.getDate()}
               </div>
-              {dots.length > 0 && (
-                <div className="flex gap-0.5 mt-0.5">
-                  {dots.map((e) => (
-                    <span key={e.id} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: e.color }} />
-                  ))}
-                </div>
-              )}
+              <div className="flex flex-col gap-0.5 mt-0.5">
+                {visible.map((e) => (
+                  <span
+                    key={e.id}
+                    onClick={(ev) => { ev.stopPropagation(); onEventClick?.(e) }}
+                    className="truncate text-xs font-medium text-white px-1.5 rounded cursor-pointer hover:opacity-80"
+                    style={{ backgroundColor: e.color }}
+                  >
+                    {e.title}
+                  </span>
+                ))}
+                {remaining > 0 && (
+                  <span
+                    onClick={(ev) => { ev.stopPropagation(); onMoreClick?.(day) }}
+                    className="text-xs text-orange-600 font-medium cursor-pointer hover:text-orange-700 pl-1"
+                  >
+                    +{remaining} more
+                  </span>
+                )}
+              </div>
             </div>
           )
         })}
@@ -202,6 +217,7 @@ export default function CalendarGrid({ events, onDayClick, onEventClick }: Calen
   const calendarView = useAppStore((s) => s.calendarView)
   const selectedDate = useAppStore((s) => s.selectedDate)
   const setSelectedDate = useAppStore((s) => s.setSelectedDate)
+  const setCalendarView = useAppStore((s) => s.setCalendarView)
 
   const navigate = (dir: number) => {
     const d = new Date(selectedDate)
@@ -231,7 +247,7 @@ export default function CalendarGrid({ events, onDayClick, onEventClick }: Calen
 
       {calendarView === 'day' && <DayView selectedDate={selectedDate} events={events} onDayClick={onDayClick} onEventClick={onEventClick} />}
       {calendarView === 'week' && <WeekView selectedDate={selectedDate} events={events} onDayClick={onDayClick} onEventClick={onEventClick} />}
-      {calendarView === 'month' && <MonthView selectedDate={selectedDate} events={events} onDayClick={onDayClick} />}
+      {calendarView === 'month' && <MonthView selectedDate={selectedDate} events={events} onDayClick={onDayClick} onEventClick={onEventClick} onMoreClick={(date) => { setSelectedDate(date); setCalendarView('day') }} />}
     </div>
   )
 }
