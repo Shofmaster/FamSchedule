@@ -63,3 +63,13 @@ All 9 stories shipped and passing:
   US-008 Upcoming events widget in dashboard sidebar
   US-009 Search bar that filters calendar events by title
 ---
+
+## 2026-02-05 - US-001
+- Implemented FilterChips.tsx: pill chips per unique event color, sorted alphabetically by hex string, with colored circle + event count, active/inactive styles, and a Clear link
+- Wired into DashboardPage: activeColors state, colorFilteredEvents derivation, filter chain order is color → search, FilterChips rendered below controls row
+- **Learnings for future iterations:**
+  - Filter chain order in DashboardPage is now: expandedEvents → colorFilteredEvents → (sourceFilteredEvents per US-002) → filteredEvents (search). Each new filter inserts between the previous and search.
+  - FilterChips receives expandedEvents (pre-filter) so chip counts reflect all events regardless of active filters
+  - No test script in this project — quality gate is build + lint only
+  - Pre-existing lint errors exist in backend/middleware/errorHandler.ts, backend/routes/google.ts, src/components/GifPicker.tsx, src/pages/AIPlannerPage.tsx — do not attempt to fix unless assigned
+---

@@ -13,6 +13,7 @@ import CreateEventModal from '../components/CreateEventModal.tsx'
 import EventDetailPopup from '../components/EventDetailPopup.tsx'
 import { getVisibleRange, expandRecurrence } from '../utils/expandRecurrence.ts'
 import UpcomingEvents from '../components/UpcomingEvents.tsx'
+import FilterChips from '../components/FilterChips.tsx'
 
 export default function DashboardPage() {
   const { user } = useUser()
@@ -43,9 +44,11 @@ export default function DashboardPage() {
   const [rangeStart, rangeEnd] = getVisibleRange(calendarView, selectedDate)
   const expandedEvents = expandRecurrence(allEvents, rangeStart, rangeEnd)
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeColors, setActiveColors] = useState<string[]>([])
+  const colorFilteredEvents = activeColors.length === 0 ? expandedEvents : expandedEvents.filter((e) => activeColors.includes(e.color))
   const filteredEvents = searchQuery
-    ? expandedEvents.filter((e) => e.title.toLowerCase().includes(searchQuery.toLowerCase()))
-    : expandedEvents
+    ? colorFilteredEvents.filter((e) => e.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    : colorFilteredEvents
   const [createEventDate, setCreateEventDate] = useState<Date | null>(null)
 
   // On mount, check if we already have a valid Google session
@@ -100,6 +103,20 @@ export default function DashboardPage() {
             </span>
           )}
         </button>
+      </div>
+
+      {/* Color filter chips */}
+      <div className="mb-4">
+        <FilterChips
+          events={expandedEvents}
+          activeColors={activeColors}
+          onToggleColor={(color) =>
+            setActiveColors((prev) =>
+              prev.includes(color) ? prev.filter((c) => c !== color) : [...prev, color]
+            )
+          }
+          onClear={() => setActiveColors([])}
+        />
       </div>
 
       {/* Main layout */}
