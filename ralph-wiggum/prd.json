@@ -77,7 +77,7 @@
         "Frontend typecheck passes: npm run build"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "UpcomingEvents now expands recurrences internally for its own 7-day window so recurring instances appear in the summary regardless of what date range the main calendar is showing."
     },
     {

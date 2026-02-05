@@ -102,3 +102,17 @@ All 9 stories shipped and passing:
   - viewMonth state needs both month and year tracked separately for year boundary transitions
   - 42-cell grid: fill prefix with prev month days (descending from firstDayOfWeek), suffix with next month days
 ---
+
+## 2026-02-05 - US-004
+- Rewrote UpcomingEvents.tsx with Today / Tomorrow / Later grouped summary
+- Internally expands recurrences via expandRecurrence(events, todayMidnight, sevenDaysFromNow)
+- Three groups partitioned by midnight boundaries; empty groups omitted
+- Each group: label header (text-xs font-semibold uppercase text-gray-500 + border-b border-gray-100), up to 3 event rows, +N more overflow link
+- All-empty state: single "No upcoming events" message
+- Card title "Upcoming" and frosted-glass wrapper preserved
+- DashboardPage call site unchanged (still passes allEvents)
+- Files changed: src/components/UpcomingEvents.tsx (full rewrite)
+- **Learnings for future iterations:**
+  - expandRecurrence import path uses .ts extension per verbatimModuleSyntax
+  - Date boundary computations: create new Date objects from todayMidnight for each boundary to avoid mutation bugs
+---
