@@ -25,6 +25,18 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Locate Claude Code binary (VSCode extension) if not already on PATH
+if ! command -v claude &>/dev/null; then
+  _CLAUDE_EXE=$(find "$HOME/.vscode/extensions" -name "claude.exe" -path "*/native-binary/*" 2>/dev/null | sort -V | tail -1)
+  if [ -n "$_CLAUDE_EXE" ]; then
+    export PATH="$(dirname "$_CLAUDE_EXE"):$PATH"
+    echo "Claude Code binary located: $_CLAUDE_EXE"
+  else
+    echo "ERROR: claude CLI not found. Install Claude Code or add it to PATH manually."
+    exit 1
+  fi
+fi
+
 # Security Pre-Flight Check
 if [[ "$SKIP_SECURITY" != "true" ]]; then
   echo ""
@@ -213,7 +225,7 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   fi
 
   # Run Claude Code with the ralph prompt
-  OUTPUT=$(claude --dangerously-skip-permissions --print < "$SCRIPT_DIR/CLAUDE.md" 2>&1 | tee /dev/stderr) || true
+  OUTPUT=$(claude --dangerously-skip-permissions --print < "$SCRIPT_DIR/CLAUDE.md" 2>&1 | tee "$SCRIPT_DIR/.claude-iter.log") || true
 
   # Check for completion signal
   if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
