@@ -82,6 +82,7 @@ export default function MessagingPage() {
   const googleCalendar = useAppStore((s) => s.googleCalendar)
   const addLocalEvent = useAppStore((s) => s.addLocalEvent)
   const sendMessage = useAppStore((s) => s.sendMessage)
+  const addMessage = useAppStore((s) => s.addMessage)
   const deleteMessage = useAppStore((s) => s.deleteMessage)
   const markConversationRead = useAppStore((s) => s.markConversationRead)
   const createConversation = useAppStore((s) => s.createConversation)
@@ -101,6 +102,7 @@ export default function MessagingPage() {
   const [showGifPicker, setShowGifPicker] = useState(false)
   const [schedulingSuggestion, setSchedulingSuggestion] = useState<{ activity: string; slot: AISlot } | null>(null)
   const [showCreateEvent, setShowCreateEvent] = useState(false)
+  const [aiTyping, setAiTyping] = useState(false)
 
   const activeConversation = conversations.find((c) => c.id === activeId) ?? null
 
@@ -169,14 +171,39 @@ export default function MessagingPage() {
     setShowGifPicker(false)
     sendMessage(activeId, content, uploaded.length > 0 ? uploaded : undefined)
 
-    // AI scheduling detection — skip if banner already showing or no text content
-    if (content && !schedulingSuggestion) {
-      const conv = conversations.find((c) => c.id === activeId)
-      if (conv && conv.type === 'dm') {
-        const recentMessages = [...conv.messages.slice(-9), { id: '', senderId: 'you', senderName: 'You', content, createdAt: new Date() }]
-          .filter((m) => m.content)
-          .map((m) => ({ sender: m.senderId === 'you' ? 'You' : conv.name, content: m.content }))
+    // AI assistant reply + scheduling detection for DMs
+    const conv = conversations.find((c) => c.id === activeId)
+    if (content && conv && conv.type === 'dm') {
+      const recentMessages = [...conv.messages.slice(-9), { id: '', senderId: 'you', senderName: 'You', content, createdAt: new Date() }]
+        .filter((m) => m.content)
+        .map((m) => ({ sender: m.senderId === 'you' ? 'You' : conv.name, content: m.content }))
 
+      // AI assistant chat response
+      setAiTyping(true)
+      const allEvents = [...localEvents, ...googleCalendar.events]
+      axios.post<{ reply: string }>('/api/ai/chat', {
+        messages: recentMessages,
+        participantName: conv.name,
+        userEvents: allEvents.slice(0, 10).map((e) => ({
+          title: e.title,
+          start: e.start.toISOString(),
+          end: e.end.toISOString(),
+        })),
+      }).then(({ data }) => {
+        if (data.reply) {
+          addMessage(activeId!, {
+            id: `msg-ai-${Date.now()}`,
+            senderId: 'assistant',
+            senderName: 'AI Assistant',
+            content: data.reply,
+            createdAt: new Date(),
+          })
+        }
+      }).catch(() => { /* AI chat is best-effort */ })
+        .finally(() => setAiTyping(false))
+
+      // AI scheduling detection — skip if banner already showing
+      if (!schedulingSuggestion) {
         axios.post<{ isScheduling: boolean; activity: string }>('/api/ai/detect-scheduling', {
           messages: recentMessages,
           participantName: conv.name,
@@ -184,8 +211,7 @@ export default function MessagingPage() {
           if (data.isScheduling && data.activity) {
             const participant = friends.find((f) => conv.participantIds.includes(f.id))
             if (participant) {
-              const userEvents = [...localEvents, ...googleCalendar.events]
-              const slot = findMutualSlot(userEvents, participant)
+              const slot = findMutualSlot(allEvents, participant)
               if (slot) {
                 setSchedulingSuggestion({ activity: data.activity, slot })
               }
@@ -346,6 +372,7 @@ export default function MessagingPage() {
                   let lastDateStr = ''
                   return activeConversation.messages.map((msg, i) => {
                     const isYou = msg.senderId === 'you'
+                    const isAssistant = msg.senderId === 'assistant'
                     const dateStr = formatDate(msg.createdAt)
                     const showDivider = dateStr !== lastDateStr
                     if (showDivider) lastDateStr = dateStr
@@ -360,44 +387,81 @@ export default function MessagingPage() {
                           </div>
                         )}
                         {showName && <p className="text-xs text-gray-500 ml-1 mb-1">{msg.senderName}</p>}
-                        <div className={`flex ${isYou ? 'justify-end' : 'justify-start'} group`}>
-                          {isYou && (
-                            <button
-                              type="button"
-                              onClick={() => deleteMessage(activeId!, msg.id)}
-                              className="self-start mt-0.5 mr-1.5 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded-full bg-gray-200 hover:bg-red-100 text-gray-400 hover:text-red-500 flex items-center justify-center cursor-pointer"
-                            >
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        {isAssistant ? (
+                          /* AI Assistant message */
+                          <div className="flex justify-start items-start gap-2">
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center shrink-0 mt-0.5">
+                              <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
                               </svg>
-                            </button>
-                          )}
-                          <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isYou ? 'bg-orange-500 text-white rounded-tr-sm' : 'bg-white shadow-sm text-gray-900 rounded-tl-sm'}`}>
-                            {msg.content && <p className="text-sm leading-relaxed">{msg.content}</p>}
-                            {msg.attachments && msg.attachments.length > 0 && (
-                              <div className={`flex flex-wrap gap-1.5 ${msg.content ? 'mt-1.5' : ''}`}>
-                                {msg.attachments.map((att) => (
-                                  att.type === 'image' || att.type === 'gif' ? (
-                                    <img key={att.id} src={att.url} alt={att.name} className="max-w-[200px] max-h-[200px] rounded-lg object-cover" />
-                                  ) : (
-                                    <div key={att.id} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg ${isYou ? 'bg-orange-400' : 'bg-gray-100'}`}>
-                                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                                      </svg>
-                                      <span className={`text-xs truncate max-w-[120px] ${isYou ? 'text-white' : 'text-gray-700'}`}>{att.name}</span>
-                                    </div>
-                                  )
-                                ))}
+                            </div>
+                            <div className="max-w-[75%]">
+                              <p className="text-xs font-medium text-purple-600 mb-0.5">AI Assistant</p>
+                              <div className="rounded-2xl rounded-tl-sm px-4 py-2 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 text-gray-900">
+                                {msg.content && <p className="text-sm leading-relaxed">{msg.content}</p>}
+                                <p className="text-xs mt-0.5 text-right text-purple-300">{formatTime(msg.createdAt)}</p>
                               </div>
-                            )}
-                            <p className={`text-xs mt-0.5 text-right ${isYou ? 'text-orange-100' : 'text-gray-400'}`}>{formatTime(msg.createdAt)}</p>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          /* Regular user message */
+                          <div className={`flex ${isYou ? 'justify-end' : 'justify-start'} group`}>
+                            {isYou && (
+                              <button
+                                type="button"
+                                onClick={() => deleteMessage(activeId!, msg.id)}
+                                className="self-start mt-0.5 mr-1.5 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded-full bg-gray-200 hover:bg-red-100 text-gray-400 hover:text-red-500 flex items-center justify-center cursor-pointer"
+                              >
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            )}
+                            <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isYou ? 'bg-orange-500 text-white rounded-tr-sm' : 'bg-white shadow-sm text-gray-900 rounded-tl-sm'}`}>
+                              {msg.content && <p className="text-sm leading-relaxed">{msg.content}</p>}
+                              {msg.attachments && msg.attachments.length > 0 && (
+                                <div className={`flex flex-wrap gap-1.5 ${msg.content ? 'mt-1.5' : ''}`}>
+                                  {msg.attachments.map((att) => (
+                                    att.type === 'image' || att.type === 'gif' ? (
+                                      <img key={att.id} src={att.url} alt={att.name} className="max-w-[200px] max-h-[200px] rounded-lg object-cover" />
+                                    ) : (
+                                      <div key={att.id} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg ${isYou ? 'bg-orange-400' : 'bg-gray-100'}`}>
+                                        <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                        </svg>
+                                        <span className={`text-xs truncate max-w-[120px] ${isYou ? 'text-white' : 'text-gray-700'}`}>{att.name}</span>
+                                      </div>
+                                    )
+                                  ))}
+                                </div>
+                              )}
+                              <p className={`text-xs mt-0.5 text-right ${isYou ? 'text-orange-100' : 'text-gray-400'}`}>{formatTime(msg.createdAt)}</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )
                   })
                 })()}
               </div>
+
+              {/* AI typing indicator */}
+              {aiTyping && (
+                <div className="flex justify-start items-start gap-2">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center shrink-0 mt-0.5">
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+                    </svg>
+                  </div>
+                  <div className="rounded-2xl rounded-tl-sm px-4 py-2.5 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100">
+                    <div className="flex gap-1">
+                      <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div ref={messagesEndRef} />
             </div>
