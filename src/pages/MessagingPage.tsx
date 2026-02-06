@@ -4,7 +4,7 @@ import useAppStore from '../store/useAppStore.ts'
 import type { Conversation, Attachment } from '../store/useAppStore.ts'
 import GifPicker from '../components/GifPicker.tsx'
 import CreateEventModal from '../components/CreateEventModal.tsx'
-import { findMutualSlot, type AISlot } from '../utils/mockAI.ts'
+import { findMutualSlot, getMemberEvents, type AISlot } from '../utils/mockAI.ts'
 
 const AVATAR_COLORS = [
   'bg-orange-100 text-orange-600',
@@ -102,6 +102,8 @@ export default function MessagingPage() {
   const [showGifPicker, setShowGifPicker] = useState(false)
   const [schedulingSuggestion, setSchedulingSuggestion] = useState<{ activity: string; slot: AISlot } | null>(null)
   const [showCreateEvent, setShowCreateEvent] = useState(false)
+  const [aiCalendarContext, setAiCalendarContext] = useState<{ title: string } | null>(null)
+  const [aiEnabled, setAiEnabled] = useState(true)
   const [aiTyping, setAiTyping] = useState(false)
 
   const activeConversation = conversations.find((c) => c.id === activeId) ?? null
@@ -173,7 +175,7 @@ export default function MessagingPage() {
 
     // AI assistant reply + scheduling detection for DMs
     const conv = conversations.find((c) => c.id === activeId)
-    if (content && conv && conv.type === 'dm') {
+    if (aiEnabled && content && conv && conv.type === 'dm') {
       const recentMessages = [...conv.messages.slice(-9), { id: '', senderId: 'you', senderName: 'You', content, createdAt: new Date() }]
         .filter((m) => m.content)
         .map((m) => ({ sender: m.senderId === 'you' ? 'You' : conv.name, content: m.content }))
@@ -181,10 +183,17 @@ export default function MessagingPage() {
       // AI assistant chat response
       setAiTyping(true)
       const allEvents = [...localEvents, ...googleCalendar.events]
+      const participant = friends.find((f) => conv.participantIds.includes(f.id))
+      const participantEvents = participant ? getMemberEvents(participant) : []
       axios.post<{ reply: string }>('/api/ai/chat', {
         messages: recentMessages,
         participantName: conv.name,
         userEvents: allEvents.slice(0, 10).map((e) => ({
+          title: e.title,
+          start: e.start.toISOString(),
+          end: e.end.toISOString(),
+        })),
+        participantEvents: participantEvents.map((e) => ({
           title: e.title,
           start: e.start.toISOString(),
           end: e.end.toISOString(),
@@ -199,8 +208,9 @@ export default function MessagingPage() {
             createdAt: new Date(),
           })
         }
-      }).catch(() => { /* AI chat is best-effort */ })
-        .finally(() => setAiTyping(false))
+      }).catch((err) => {
+        console.error('[AI Chat] Error:', err?.response?.data || err.message || err)
+      }).finally(() => setAiTyping(false))
 
       // AI scheduling detection — skip if banner already showing
       if (!schedulingSuggestion) {
@@ -217,7 +227,9 @@ export default function MessagingPage() {
               }
             }
           }
-        }).catch(() => { /* AI detection is best-effort */ })
+        }).catch((err) => {
+          console.error('[AI Scheduling] Error:', err?.response?.data || err.message || err)
+        })
       }
     }
   }
@@ -349,15 +361,29 @@ export default function MessagingPage() {
                   {activeConversation.type === 'group' ? `${activeConversation.participantIds.length + 1} members` : 'Direct message'}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleDeleteConversation}
-                className="ml-auto w-8 h-8 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
+              <div className="ml-auto flex items-center gap-1">
+                {/* AI toggle */}
+                <button
+                  type="button"
+                  onClick={() => setAiEnabled((v) => !v)}
+                  title={aiEnabled ? 'Disable AI Assistant' : 'Enable AI Assistant'}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${aiEnabled ? 'text-purple-500 hover:bg-purple-50' : 'text-gray-300 hover:bg-gray-100'}`}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+                  </svg>
+                </button>
+                {/* Delete conversation */}
+                <button
+                  type="button"
+                  onClick={handleDeleteConversation}
+                  className="w-8 h-8 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {/* Message thread */}
@@ -389,7 +415,7 @@ export default function MessagingPage() {
                         {showName && <p className="text-xs text-gray-500 ml-1 mb-1">{msg.senderName}</p>}
                         {isAssistant ? (
                           /* AI Assistant message */
-                          <div className="flex justify-start items-start gap-2">
+                          <div className="flex justify-start items-start gap-2 group">
                             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center shrink-0 mt-0.5">
                               <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
@@ -399,9 +425,33 @@ export default function MessagingPage() {
                               <p className="text-xs font-medium text-purple-600 mb-0.5">AI Assistant</p>
                               <div className="rounded-2xl rounded-tl-sm px-4 py-2 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 text-gray-900">
                                 {msg.content && <p className="text-sm leading-relaxed">{msg.content}</p>}
-                                <p className="text-xs mt-0.5 text-right text-purple-300">{formatTime(msg.createdAt)}</p>
+                                <div className="flex items-center justify-between mt-1.5 gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAiCalendarContext({ title: activeConversation.name })
+                                      setShowCreateEvent(true)
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-medium rounded-lg transition-colors cursor-pointer"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Add to Calendar
+                                  </button>
+                                  <p className="text-xs text-purple-300">{formatTime(msg.createdAt)}</p>
+                                </div>
                               </div>
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => deleteMessage(activeId!, msg.id)}
+                              className="self-start mt-5 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded-full bg-gray-200 hover:bg-red-100 text-gray-400 hover:text-red-500 flex items-center justify-center cursor-pointer shrink-0"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
                           </div>
                         ) : (
                           /* Regular user message */
@@ -607,17 +657,20 @@ export default function MessagingPage() {
         )}
       </div>
 
-      {/* CreateEventModal — opened from AI scheduling suggestion */}
-      {showCreateEvent && schedulingSuggestion && (
+      {/* CreateEventModal — opened from AI scheduling suggestion or AI message */}
+      {showCreateEvent && (schedulingSuggestion || aiCalendarContext) && (
         <CreateEventModal
-          initialDate={schedulingSuggestion.slot.start}
-          defaultTitle={schedulingSuggestion.activity.charAt(0).toUpperCase() + schedulingSuggestion.activity.slice(1)}
+          initialDate={schedulingSuggestion?.slot.start ?? new Date()}
+          defaultTitle={schedulingSuggestion
+            ? schedulingSuggestion.activity.charAt(0).toUpperCase() + schedulingSuggestion.activity.slice(1)
+            : undefined}
           defaultGuestIds={activeConversation?.participantIds}
-          onClose={() => { setShowCreateEvent(false); setSchedulingSuggestion(null) }}
+          onClose={() => { setShowCreateEvent(false); setSchedulingSuggestion(null); setAiCalendarContext(null) }}
           onSubmit={(event) => {
             addLocalEvent(event)
             setShowCreateEvent(false)
             setSchedulingSuggestion(null)
+            setAiCalendarContext(null)
           }}
         />
       )}

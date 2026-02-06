@@ -23,7 +23,8 @@
       "Bash(taskkill:*)",
       "Bash(git check-ignore:*)",
       "Bash(git log:*)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(ss:*)"
     ],
     "mode": "no"
   }
