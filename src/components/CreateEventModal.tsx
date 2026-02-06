@@ -8,6 +8,8 @@ const COLORS = ['#F97316', '#FDBA74', '#3B82F6', '#10B981', '#8B5CF6', '#EF4444'
 interface CreateEventModalProps {
   initialDate: Date
   existingEvent?: CalendarEvent
+  defaultTitle?: string
+  defaultGuestIds?: string[]
   onClose: () => void
   onSubmit: (event: CalendarEvent, pushToGoogle: boolean) => void
 }
@@ -26,13 +28,13 @@ function addHour(d: Date): Date {
   return out
 }
 
-export default function CreateEventModal({ initialDate, existingEvent, onClose, onSubmit }: CreateEventModalProps) {
+export default function CreateEventModal({ initialDate, existingEvent, defaultTitle, defaultGuestIds, onClose, onSubmit }: CreateEventModalProps) {
   const friends = useAppStore((s) => s.friends)
   const googleCalendar = useAppStore((s) => s.googleCalendar)
   const localEvents = useAppStore((s) => s.localEvents)
   const isEditing = !!existingEvent
 
-  const [title, setTitle] = useState(existingEvent?.title ?? '')
+  const [title, setTitle] = useState(existingEvent?.title ?? defaultTitle ?? '')
   const [date, setDate] = useState(existingEvent ? toDateString(existingEvent.start) : toDateString(initialDate))
   const [allDay, setAllDay] = useState(existingEvent?.allDay ?? false)
   const [startTime, setStartTime] = useState(existingEvent ? formatTimeInput(existingEvent.start) : formatTimeInput(initialDate))
@@ -40,7 +42,7 @@ export default function CreateEventModal({ initialDate, existingEvent, onClose, 
   const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'>(existingEvent?.recurrence ?? 'none')
   const [recurrenceCustom, setRecurrenceCustom] = useState(existingEvent?.recurrenceCustom ?? '')
   const [importance, setImportance] = useState<'non-negotiable' | 'highly-important' | 'important' | 'flexible' | 'soft'>(existingEvent?.importance ?? 'important')
-  const [guestIds, setGuestIds] = useState<string[]>(existingEvent?.guestIds ?? [])
+  const [guestIds, setGuestIds] = useState<string[]>(existingEvent?.guestIds ?? defaultGuestIds ?? [])
   const [guestFilter, setGuestFilter] = useState('')
   const [description, setDescription] = useState(existingEvent?.description ?? '')
   const [location, setLocation] = useState(existingEvent?.location ?? '')
@@ -245,7 +247,7 @@ export default function CreateEventModal({ initialDate, existingEvent, onClose, 
                   key={option.value}
                   type="button"
                   onClick={() => setImportance(option.value)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-full transition-colors ${
+                  className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-full transition-colors ${
                     importance === option.value ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
@@ -263,12 +265,12 @@ export default function CreateEventModal({ initialDate, existingEvent, onClose, 
                 {guestIds.map((id) => {
                   const friend = friends.find((f) => f.id === id)
                   return (
-                    <span key={id} className="inline-flex items-center gap-1 bg-orange-100 text-orange-700 text-xs font-medium px-2 py-1 rounded-full">
+                    <span key={id} className="inline-flex items-center gap-1 bg-orange-100 text-orange-700 text-xs font-medium px-2.5 py-1.5 rounded-full">
                       {friend?.name}
                       <button
                         type="button"
                         onClick={() => setGuestIds((prev) => prev.filter((g) => g !== id))}
-                        className="hover:text-orange-900 ml-0.5"
+                        className="hover:text-orange-900 ml-0.5 p-0.5"
                       >
                         ×
                       </button>
@@ -334,7 +336,7 @@ export default function CreateEventModal({ initialDate, existingEvent, onClose, 
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
-                  className="w-7 h-7 rounded-full transition-transform hover:scale-110"
+                  className="w-8 h-8 sm:w-7 sm:h-7 rounded-full transition-transform hover:scale-110"
                   style={{
                     backgroundColor: c,
                     boxShadow: color === c ? `0 0 0 2px white, 0 0 0 4px ${c}` : undefined,

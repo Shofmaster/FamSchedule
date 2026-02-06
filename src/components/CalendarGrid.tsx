@@ -81,7 +81,7 @@ function DayView({ selectedDate, events, onDayClick, onEventClick }: { selectedD
   const dayEvents = events.filter((e) => isSameDay(e.start, selectedDate))
 
   return (
-    <div className="overflow-y-auto" style={{ maxHeight: 480 }}>
+    <div className="overflow-y-auto max-h-[60vh] sm:max-h-[480px]">
       <div className="relative" style={{ height: HOURS.length * HOUR_HEIGHT }}>
         {HOURS.map((hour, i) => (
           <div
@@ -113,48 +113,50 @@ function WeekView({ selectedDate, events, onDayClick, onEventClick }: { selected
   const today = new Date()
 
   return (
-    <div className="overflow-y-auto" style={{ maxHeight: 480 }}>
-      {/* Day headers */}
-      <div className="grid sticky top-0 bg-white z-10 border-b border-gray-200" style={{ gridTemplateColumns: '3.5rem repeat(7, 1fr)' }}>
-        <div />
-        {weekDays.map((day, i) => (
-          <div key={i} className={`text-center py-2 border-l border-gray-100 ${isSameDay(day, today) ? 'bg-orange-50' : ''}`}>
-            <div className="text-xs text-gray-500">{DAY_NAMES[day.getDay()]}</div>
-            <div className={`text-sm font-bold ${isSameDay(day, today) ? 'text-orange-500' : 'text-gray-900'}`}>{day.getDate()}</div>
-          </div>
-        ))}
-      </div>
+    <div className="overflow-x-auto overflow-y-auto max-h-[60vh] sm:max-h-[480px]">
+      <div className="min-w-[540px]">
+        {/* Day headers */}
+        <div className="grid sticky top-0 bg-white z-10 border-b border-gray-200" style={{ gridTemplateColumns: '2.5rem repeat(7, 1fr)' }}>
+          <div />
+          {weekDays.map((day, i) => (
+            <div key={i} className={`text-center py-1.5 sm:py-2 border-l border-gray-100 ${isSameDay(day, today) ? 'bg-orange-50' : ''}`}>
+              <div className="text-xs text-gray-500">{DAY_NAMES[day.getDay()]}</div>
+              <div className={`text-xs sm:text-sm font-bold ${isSameDay(day, today) ? 'text-orange-500' : 'text-gray-900'}`}>{day.getDate()}</div>
+            </div>
+          ))}
+        </div>
 
-      {/* Time grid + events */}
-      <div className="relative" style={{ height: HOURS.length * HOUR_HEIGHT }}>
-        {/* Hour rows */}
-        {HOURS.map((hour, i) => (
-          <div key={hour} className="absolute left-0 right-0 border-t border-gray-100 flex" style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}>
-            <span className="text-xs text-gray-400 w-14 pl-1 pt-0.5 flex-shrink-0">{formatHour(hour)}</span>
-            {weekDays.map((day, j) => <div key={j} onClick={() => { const d = new Date(day); d.setHours(hour, 0, 0, 0); onDayClick?.(d) }} className="flex-1 border-l border-gray-100 cursor-pointer hover:bg-orange-50 transition-colors" />)}
-          </div>
-        ))}
-        {/* Events */}
-        {weekDays.map((day, colIdx) =>
-          events
-            .filter((e) => isSameDay(e.start, day))
-            .map((ev) => (
-              <div
-                key={ev.id}
-                onClick={(e) => { e.stopPropagation(); onEventClick?.(ev) }}
-                className="absolute rounded px-1 py-0.5 text-xs font-semibold text-white shadow-sm overflow-hidden cursor-pointer hover:opacity-80"
-                style={{
-                  top: getEventTop(ev),
-                  height: Math.max(getEventHeight(ev), 20),
-                  left: `calc(3.5rem + ${colIdx} * (100% - 3.5rem) / 7)`,
-                  width: `calc((100% - 3.5rem) / 7)`,
-                  backgroundColor: ev.color,
-                }}
-              >
-                {ev.title}
-              </div>
-            ))
-        )}
+        {/* Time grid + events */}
+        <div className="relative" style={{ height: HOURS.length * HOUR_HEIGHT }}>
+          {/* Hour rows */}
+          {HOURS.map((hour, i) => (
+            <div key={hour} className="absolute left-0 right-0 border-t border-gray-100 flex" style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}>
+              <span className="text-xs text-gray-400 w-10 pl-1 pt-0.5 flex-shrink-0">{formatHour(hour)}</span>
+              {weekDays.map((day, j) => <div key={j} onClick={() => { const d = new Date(day); d.setHours(hour, 0, 0, 0); onDayClick?.(d) }} className="flex-1 border-l border-gray-100 cursor-pointer hover:bg-orange-50 transition-colors" />)}
+            </div>
+          ))}
+          {/* Events */}
+          {weekDays.map((day, colIdx) =>
+            events
+              .filter((e) => isSameDay(e.start, day))
+              .map((ev) => (
+                <div
+                  key={ev.id}
+                  onClick={(e) => { e.stopPropagation(); onEventClick?.(ev) }}
+                  className="absolute rounded px-1 py-0.5 text-xs font-semibold text-white shadow-sm overflow-hidden cursor-pointer hover:opacity-80"
+                  style={{
+                    top: getEventTop(ev),
+                    height: Math.max(getEventHeight(ev), 20),
+                    left: `calc(2.5rem + ${colIdx} * (100% - 2.5rem) / 7)`,
+                    width: `calc((100% - 2.5rem) / 7)`,
+                    backgroundColor: ev.color,
+                  }}
+                >
+                  {ev.title}
+                </div>
+              ))
+          )}
+        </div>
       </div>
     </div>
   )
@@ -187,7 +189,7 @@ function MonthView({ selectedDate, events, onDayClick, onEventClick }: { selecte
           const remaining = dayEvents.length - visible.length
 
           return (
-            <div key={i} onClick={() => setPopoverDay(day)} className={`min-h-[80px] p-1.5 border-b border-r border-gray-100 cursor-pointer hover:bg-orange-50 transition-colors ${inMonth ? 'bg-white' : 'bg-gray-50'}`}>
+            <div key={i} onClick={() => setPopoverDay(day)} className={`min-h-[52px] sm:min-h-[80px] p-1 sm:p-1.5 border-b border-r border-gray-100 cursor-pointer hover:bg-orange-50 transition-colors ${inMonth ? 'bg-white' : 'bg-gray-50'}`}>
               <div className={`text-xs font-medium ${isToday ? 'text-orange-500 font-bold' : inMonth ? 'text-gray-900' : 'text-gray-400'}`}>
                 {day.getDate()}
               </div>
@@ -196,7 +198,7 @@ function MonthView({ selectedDate, events, onDayClick, onEventClick }: { selecte
                   <span
                     key={e.id}
                     onClick={(ev) => { ev.stopPropagation(); onEventClick?.(e) }}
-                    className="truncate text-xs font-medium text-white px-1.5 rounded cursor-pointer hover:opacity-80"
+                    className="truncate text-[10px] sm:text-xs font-medium text-white px-1 sm:px-1.5 rounded cursor-pointer hover:opacity-80"
                     style={{ backgroundColor: e.color }}
                   >
                     {e.title}
@@ -221,7 +223,7 @@ function MonthView({ selectedDate, events, onDayClick, onEventClick }: { selecte
         <>
           <div className="fixed inset-0 z-40" onClick={() => setPopoverDay(null)} />
           <div
-            className="fixed z-50 bg-white rounded-xl shadow-lg border border-gray-200 w-64 max-h-80 overflow-y-auto"
+            className="fixed z-50 bg-white rounded-xl shadow-lg border border-gray-200 w-[calc(100%-2rem)] sm:w-64 max-h-80 overflow-y-auto"
             style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
             onClick={(e) => e.stopPropagation()}
           >

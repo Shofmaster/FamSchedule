@@ -11,6 +11,7 @@
     "postinstall": "node scripts/patch-clerk.cjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.73.0",
     "@clerk/clerk-js": "^5.122.0",
     "@clerk/react": "^5.54.0",
     "@tailwindcss/vite": "^4.1.18",

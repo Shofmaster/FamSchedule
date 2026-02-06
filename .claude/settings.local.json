@@ -16,7 +16,13 @@
       "Bash(bash:*)",
       "WebFetch(domain:developers.giphy.com)",
       "Bash(npm run dev:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(git remote add:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(git log:*)"
     ],
     "mode": "no"
   }

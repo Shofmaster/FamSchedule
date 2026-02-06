@@ -5,6 +5,7 @@ import dotenv from 'dotenv'
 import path from 'path'
 import googleRouter from './routes/google'
 import attachmentsRouter from './routes/attachments'
+import aiRouter from './routes/ai'
 import errorHandler from './middleware/errorHandler'
 
 dotenv.config({ path: path.resolve(__dirname, '..', '.env.local') })
@@ -19,6 +20,7 @@ app.use(express.json())
 app.use('/uploads', express.static(path.resolve(__dirname, 'uploads')))
 app.use('/api/google', googleRouter)
 app.use('/api/attachments', attachmentsRouter)
+app.use('/api/ai', aiRouter)
 app.use(errorHandler)
 
 app.listen(PORT, () => {

@@ -8,9 +8,11 @@ import type { OAuth2Client } from 'google-auth-library'
 
 const router = Router()
 
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ''
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || ''
 const REDIRECT_URI = 'http://localhost:3001/api/google/callback'
+
+// Read env vars lazily — dotenv.config() in server.ts runs after this module loads
+function getClientId() { return process.env.GOOGLE_CLIENT_ID || '' }
+function getClientSecret() { return process.env.GOOGLE_CLIENT_SECRET || '' }
 
 // File-backed token store: sessionId → token bundle
 // Survives backend restarts. tokens.json is in .gitignore.
@@ -32,12 +34,14 @@ function saveTokens(): void {
 const tokenStore: Record<string, TokenBundle> = loadTokens()
 
 function createOAuth2Client() {
-  return new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI)
+  return new google.auth.OAuth2(getClientId(), getClientSecret(), REDIRECT_URI)
 }
 
 function credentialsConfigured(): boolean {
-  return CLIENT_ID.length > 0 && !CLIENT_ID.startsWith('your_') &&
-         CLIENT_SECRET.length > 0 && !CLIENT_SECRET.startsWith('your_')
+  const id = getClientId()
+  const secret = getClientSecret()
+  return id.length > 0 && !id.startsWith('your_') &&
+         secret.length > 0 && !secret.startsWith('your_')
 }
 
 // GET /api/google/status — reports credential and session state
@@ -111,114 +115,134 @@ async function getValidClient(req: Request): Promise<OAuth2Client | null> {
 
 // GET /api/google/events — fetches next 30 days of events
 router.get('/events', async (req: Request, res: Response) => {
-  const oauth2Client = await getValidClient(req)
-  if (!oauth2Client) {
-    return res.status(401).json({ connected: false })
+  try {
+    const oauth2Client = await getValidClient(req)
+    if (!oauth2Client) {
+      return res.status(401).json({ connected: false })
+    }
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+    const now = new Date()
+    const thirtyDays = new Date(now)
+    thirtyDays.setDate(thirtyDays.getDate() + 30)
+
+    const { data } = await calendar.events.list({
+      calendarId: 'primary',
+      timeMin: now.toISOString(),
+      timeMax: thirtyDays.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+    })
+
+    const events = (data.items || []).map((item) => ({
+      id: item.id || '',
+      title: item.summary || '(No title)',
+      start: item.start?.dateTime || item.start?.date || now.toISOString(),
+      end: item.end?.dateTime || item.end?.date || now.toISOString(),
+      color: '#0d9488',
+      source: 'google',
+    }))
+
+    res.json({ events, connected: true })
+  } catch (err) {
+    console.error('Failed to fetch Google Calendar events:', err)
+    res.status(500).json({ error: 'Failed to fetch events from Google Calendar' })
   }
-
-  const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
-  const now = new Date()
-  const thirtyDays = new Date(now)
-  thirtyDays.setDate(thirtyDays.getDate() + 30)
-
-  const { data } = await calendar.events.list({
-    calendarId: 'primary',
-    timeMin: now.toISOString(),
-    timeMax: thirtyDays.toISOString(),
-    singleEvents: true,
-    orderBy: 'startTime',
-  })
-
-  const events = (data.items || []).map((item) => ({
-    id: item.id || '',
-    title: item.summary || '(No title)',
-    start: item.start?.dateTime || item.start?.date || now.toISOString(),
-    end: item.end?.dateTime || item.end?.date || now.toISOString(),
-    color: '#0d9488',
-    source: 'google',
-  }))
-
-  res.json({ events, connected: true })
 })
 
 // POST /api/google/events — pushes a new event to Google Calendar
 router.post('/events', async (req: Request, res: Response) => {
-  const oauth2Client = await getValidClient(req)
-  if (!oauth2Client) {
-    return res.status(401).json({ error: 'Not connected to Google Calendar' })
+  try {
+    const oauth2Client = await getValidClient(req)
+    if (!oauth2Client) {
+      return res.status(401).json({ error: 'Not connected to Google Calendar' })
+    }
+
+    const { title, start, end, allDay, description, location, guests } = req.body as {
+      title: string
+      start: string
+      end: string
+      allDay?: boolean
+      description?: string
+      location?: string
+      guests?: string[]
+    }
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+
+    const event: Record<string, unknown> = {
+      summary: title,
+      start: allDay ? { date: start.slice(0, 10) } : { dateTime: start },
+      end: allDay ? { date: end.slice(0, 10) } : { dateTime: end },
+    }
+    if (description) event.description = description
+    if (location) event.location = location
+    if (guests && guests.length > 0) event.attendees = guests.map((email: string) => ({ email }))
+
+    const { data } = await calendar.events.insert({ calendarId: 'primary', requestBody: event as any })
+
+    res.json({ googleEventId: data.id || '' })
+  } catch (err) {
+    console.error('Failed to create Google Calendar event:', err)
+    res.status(500).json({ error: 'Failed to create event on Google Calendar' })
   }
-
-  const { title, start, end, allDay, description, location, guests } = req.body as {
-    title: string
-    start: string
-    end: string
-    allDay?: boolean
-    description?: string
-    location?: string
-    guests?: string[]
-  }
-
-  const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
-
-  const event: Record<string, unknown> = {
-    summary: title,
-    start: allDay ? { date: start.slice(0, 10) } : { dateTime: start },
-    end: allDay ? { date: end.slice(0, 10) } : { dateTime: end },
-  }
-  if (description) event.description = description
-  if (location) event.location = location
-  if (guests && guests.length > 0) event.guests = guests.map((email) => ({ email }))
-
-  const { data } = await calendar.events.insert({ calendarId: 'primary', requestBody: event as any })
-
-  res.json({ googleEventId: data.id || '' })
 })
 
 // PUT /api/google/events/:id — updates an existing event on Google Calendar
 router.put('/events/:id', async (req: Request, res: Response) => {
-  const oauth2Client = await getValidClient(req)
-  if (!oauth2Client) {
-    return res.status(401).json({ error: 'Not connected to Google Calendar' })
+  try {
+    const oauth2Client = await getValidClient(req)
+    if (!oauth2Client) {
+      return res.status(401).json({ error: 'Not connected to Google Calendar' })
+    }
+
+    const { title, start, end, allDay, description, location, guests } = req.body as {
+      title: string
+      start: string
+      end: string
+      allDay?: boolean
+      description?: string
+      location?: string
+      guests?: string[]
+    }
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+
+    const event: Record<string, unknown> = {
+      summary: title,
+      start: allDay ? { date: start.slice(0, 10) } : { dateTime: start },
+      end: allDay ? { date: end.slice(0, 10) } : { dateTime: end },
+    }
+    if (description) event.description = description
+    if (location) event.location = location
+    if (guests && guests.length > 0) event.attendees = guests.map((email: string) => ({ email }))
+
+    await calendar.events.update({ calendarId: 'primary', eventId: req.params.id as string, requestBody: event as any })
+
+    res.json({ updated: true })
+  } catch (err) {
+    console.error('Failed to update Google Calendar event:', err)
+    res.status(500).json({ error: 'Failed to update event on Google Calendar' })
   }
-
-  const { title, start, end, allDay, description, location, guests } = req.body as {
-    title: string
-    start: string
-    end: string
-    allDay?: boolean
-    description?: string
-    location?: string
-    guests?: string[]
-  }
-
-  const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
-
-  const event: Record<string, unknown> = {
-    summary: title,
-    start: allDay ? { date: start.slice(0, 10) } : { dateTime: start },
-    end: allDay ? { date: end.slice(0, 10) } : { dateTime: end },
-  }
-  if (description) event.description = description
-  if (location) event.location = location
-  if (guests && guests.length > 0) event.guests = guests.map((email) => ({ email }))
-
-  await calendar.events.update({ calendarId: 'primary', eventId: req.params.id as string, requestBody: event as any })
-
-  res.json({ updated: true })
 })
 
 // DELETE /api/google/events/:id — removes an event from Google Calendar
 router.delete('/events/:id', async (req: Request, res: Response) => {
-  const oauth2Client = await getValidClient(req)
-  if (!oauth2Client) {
-    return res.status(401).json({ error: 'Not connected to Google Calendar' })
+  try {
+    const oauth2Client = await getValidClient(req)
+    if (!oauth2Client) {
+      return res.status(401).json({ error: 'Not connected to Google Calendar' })
+    }
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+
+    await calendar.events.delete({ calendarId: 'primary', eventId: req.params.id as string })
+
+    res.json({ deleted: true })
+  } catch (err) {
+    console.error('Failed to delete Google Calendar event:', err)
+    res.status(500).json({ error: 'Failed to delete event from Google Calendar' })
   }
-
-  const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
-
-  await calendar.events.delete({ calendarId: 'primary', eventId: req.params.id as string })
-
-  res.json({ deleted: true })
 })
 
 export default router

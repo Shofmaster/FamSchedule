@@ -18,8 +18,8 @@ async function fetchGifs(endpoint: string, params: Record<string, string>): Prom
   return (json.data || []).map((g: any) => ({
     id: g.id,
     title: g.title || '',
-    fixedUrl: g.images?.fixed?.url || g.images?.fixed_small?.url || '',
-    previewUrl: g.images?.fixed_small?.url || g.images?.fixed?.url || '',
+    fixedUrl: g.images?.fixed_height?.url || g.images?.fixed_width?.url || '',
+    previewUrl: g.images?.fixed_height_small?.url || g.images?.fixed_height?.url || '',
   }))
 }
 

@@ -3,6 +3,8 @@ import axios from 'axios'
 import useAppStore from '../store/useAppStore.ts'
 import type { Conversation, Attachment } from '../store/useAppStore.ts'
 import GifPicker from '../components/GifPicker.tsx'
+import CreateEventModal from '../components/CreateEventModal.tsx'
+import { findMutualSlot, type AISlot } from '../utils/mockAI.ts'
 
 const AVATAR_COLORS = [
   'bg-orange-100 text-orange-600',
@@ -76,6 +78,9 @@ export default function MessagingPage() {
   const conversations = useAppStore((s) => s.conversations)
   const friends = useAppStore((s) => s.friends)
   const groups = useAppStore((s) => s.groups)
+  const localEvents = useAppStore((s) => s.localEvents)
+  const googleCalendar = useAppStore((s) => s.googleCalendar)
+  const addLocalEvent = useAppStore((s) => s.addLocalEvent)
   const sendMessage = useAppStore((s) => s.sendMessage)
   const deleteMessage = useAppStore((s) => s.deleteMessage)
   const markConversationRead = useAppStore((s) => s.markConversationRead)
@@ -85,6 +90,7 @@ export default function MessagingPage() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [input, setInput] = useState('')
   const [showNewMessage, setShowNewMessage] = useState(false)
+  const [showSidebar, setShowSidebar] = useState(true)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -93,6 +99,8 @@ export default function MessagingPage() {
 
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([])
   const [showGifPicker, setShowGifPicker] = useState(false)
+  const [schedulingSuggestion, setSchedulingSuggestion] = useState<{ activity: string; slot: AISlot } | null>(null)
+  const [showCreateEvent, setShowCreateEvent] = useState(false)
 
   const activeConversation = conversations.find((c) => c.id === activeId) ?? null
 
@@ -111,6 +119,9 @@ export default function MessagingPage() {
   const handleSelectConversation = (id: string) => {
     setActiveId(id)
     setShowNewMessage(false)
+    setSchedulingSuggestion(null)
+    setShowCreateEvent(false)
+    setShowSidebar(false)
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -157,6 +168,32 @@ export default function MessagingPage() {
     setPendingAttachments([])
     setShowGifPicker(false)
     sendMessage(activeId, content, uploaded.length > 0 ? uploaded : undefined)
+
+    // AI scheduling detection — skip if banner already showing or no text content
+    if (content && !schedulingSuggestion) {
+      const conv = conversations.find((c) => c.id === activeId)
+      if (conv && conv.type === 'dm') {
+        const recentMessages = [...conv.messages.slice(-9), { id: '', senderId: 'you', senderName: 'You', content, createdAt: new Date() }]
+          .filter((m) => m.content)
+          .map((m) => ({ sender: m.senderId === 'you' ? 'You' : conv.name, content: m.content }))
+
+        axios.post<{ isScheduling: boolean; activity: string }>('/api/ai/detect-scheduling', {
+          messages: recentMessages,
+          participantName: conv.name,
+        }).then(({ data }) => {
+          if (data.isScheduling && data.activity) {
+            const participant = friends.find((f) => conv.participantIds.includes(f.id))
+            if (participant) {
+              const userEvents = [...localEvents, ...googleCalendar.events]
+              const slot = findMutualSlot(userEvents, participant)
+              if (slot) {
+                setSchedulingSuggestion({ activity: data.activity, slot })
+              }
+            }
+          }
+        }).catch(() => { /* AI detection is best-effort */ })
+      }
+    }
   }
 
   const handleNewConversation = (type: 'dm' | 'group', referenceId: string) => {
@@ -192,9 +229,9 @@ export default function MessagingPage() {
   const groupList = sorted.filter((c) => c.type === 'group')
 
   return (
-    <div className="flex" style={{ height: 'calc(100vh - 64px)' }}>
+    <div className="flex h-[calc(100dvh-64px)]">
       {/* ── Sidebar ── */}
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col overflow-hidden shrink-0">
+      <div className={`${showSidebar ? 'flex' : 'hidden'} md:flex w-full md:w-80 bg-white border-r border-gray-200 flex-col overflow-hidden shrink-0`}>
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
           <button
@@ -262,11 +299,21 @@ export default function MessagingPage() {
       </div>
 
       {/* ── Main panel ── */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-orange-50">
+      <div className={`${showSidebar ? 'hidden' : 'flex'} md:flex flex-1 flex-col overflow-hidden bg-orange-50`}>
         {activeConversation ? (
           <>
             {/* Header */}
-            <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-3 shrink-0">
+            <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center gap-3 shrink-0">
+              {/* Mobile back button */}
+              <button
+                onClick={() => setShowSidebar(true)}
+                className="md:hidden p-1.5 -ml-1 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                aria-label="Back to conversations"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
               <div className={`w-10 h-10 rounded-full flex items-center justify-center ${getAvatarColor(activeConversation.name)}`}>
                 <span className="text-sm font-semibold">{getInitials(activeConversation.name)}</span>
               </div>
@@ -354,6 +401,39 @@ export default function MessagingPage() {
 
               <div ref={messagesEndRef} />
             </div>
+
+            {/* AI scheduling suggestion banner */}
+            {schedulingSuggestion && !showCreateEvent && (
+              <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-t border-orange-200 px-4 py-3 shrink-0">
+                <div className="max-w-3xl mx-auto flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                    <svg className="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-800">
+                      It sounds like you're planning <strong>{schedulingSuggestion.activity}</strong>!{' '}
+                      <span className="text-orange-600 font-medium">{schedulingSuggestion.slot.reason}</span>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowCreateEvent(true)}
+                    className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer"
+                  >
+                    Create Event
+                  </button>
+                  <button
+                    onClick={() => setSchedulingSuggestion(null)}
+                    className="w-6 h-6 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Input bar */}
             <div className="bg-white border-t border-gray-200 p-4 shrink-0">
@@ -444,7 +524,7 @@ export default function MessagingPage() {
         ) : (
           /* Empty state */
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center max-w-xs">
+            <div className="text-center max-w-xs px-4">
               <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -452,10 +532,31 @@ export default function MessagingPage() {
               </div>
               <h3 className="text-lg font-semibold text-gray-700">Select a conversation</h3>
               <p className="text-sm text-gray-500 mt-1">Pick a friend or group from the left to start chatting.</p>
+              <button
+                onClick={() => setShowSidebar(true)}
+                className="md:hidden mt-3 px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-lg hover:bg-orange-600 transition-colors"
+              >
+                View Conversations
+              </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* CreateEventModal — opened from AI scheduling suggestion */}
+      {showCreateEvent && schedulingSuggestion && (
+        <CreateEventModal
+          initialDate={schedulingSuggestion.slot.start}
+          defaultTitle={schedulingSuggestion.activity.charAt(0).toUpperCase() + schedulingSuggestion.activity.slice(1)}
+          defaultGuestIds={activeConversation?.participantIds}
+          onClose={() => { setShowCreateEvent(false); setSchedulingSuggestion(null) }}
+          onSubmit={(event) => {
+            addLocalEvent(event)
+            setShowCreateEvent(false)
+            setSchedulingSuggestion(null)
+          }}
+        />
+      )}
     </div>
   )
 }

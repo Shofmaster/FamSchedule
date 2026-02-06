@@ -106,6 +106,42 @@ export function findBestGroupSlot(members: Friend[], userEvents: CalendarEvent[]
   return bestSlot
 }
 
+// Finds the closest 1-hour slot where both user and a participant are free (next 7 days, 9-17h)
+export function findMutualSlot(userEvents: CalendarEvent[], participant: Friend): AISlot | null {
+  const now = new Date()
+  const checkHours = [9, 10, 11, 12, 13, 14, 15, 16, 17]
+  const participantEvents = getMemberEvents(participant)
+
+  for (let dayOffset = 0; dayOffset <= 7; dayOffset++) {
+    const day = new Date(now)
+    day.setDate(day.getDate() + dayOffset)
+
+    for (const hour of checkHours) {
+      const start = new Date(day)
+      start.setHours(hour, 0, 0, 0)
+      // Skip slots in the past
+      if (start <= now) continue
+      const end = new Date(start)
+      end.setHours(hour + 1, 0, 0, 0)
+
+      if (hasConflict(userEvents, start, end)) continue
+      if (hasConflict(participantEvents, start, end)) continue
+
+      const dayName = DAY_NAMES[start.getDay()]
+      const isToday = dayOffset === 0
+      const isTomorrow = dayOffset === 1
+      const label = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : dayName
+      return {
+        start,
+        end,
+        reason: `${label} at ${hour}:00 — you're both free`,
+      }
+    }
+  }
+
+  return null
+}
+
 // Finds 3 free 1-hour slots for the user over the next 3 days, weighted by high-priority friends
 export function findBestPersonalSlot(userEvents: CalendarEvent[], friendsSortedByPriority: Friend[]): AISlot[] {
   const now = new Date()

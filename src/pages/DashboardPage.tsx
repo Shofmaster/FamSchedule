@@ -136,14 +136,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Controls row */}
-      <div className="flex items-center justify-between mb-4 gap-3">
+      <div className="flex flex-wrap items-center justify-between mb-4 gap-2 sm:gap-3">
         <ViewToggle />
         <div className="flex bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           {(['all', 'local', ...(googleCalendar.isConnected ? ['google'] : [])] as ('all' | 'local' | 'google')[]).map((src) => (
             <button
               key={src}
               onClick={() => setSourceFilter(src)}
-              className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${
+              className={`px-3 sm:px-4 py-2 text-sm font-medium capitalize transition-colors ${
                 sourceFilter === src ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
@@ -151,7 +151,7 @@ export default function DashboardPage() {
             </button>
           ))}
         </div>
-        <div className="relative flex-1 max-w-[200px]">
+        <div className="relative flex-1 min-w-[140px] max-w-[200px] order-last sm:order-none w-full sm:w-auto">
           <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
           </svg>
@@ -191,11 +191,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Main layout */}
-      <div className="flex gap-6">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
         <div className="flex-1 min-w-0">
           <CalendarGrid events={filteredEvents} onDayClick={setCreateEventDate} onEventClick={setSelectedEvent} />
         </div>
-        <div className={`w-72 flex-shrink-0 ${showNotifications ? 'block' : 'hidden lg:block'}`}>
+        <div className={`w-full lg:w-72 flex-shrink-0 ${showNotifications ? 'block' : 'hidden lg:block'}`}>
           <MiniMonthNav />
           <div className="mt-4">
             <NotificationPanel notifications={notifications} onMarkRead={markNotificationRead} />
