@@ -22,7 +22,8 @@
       "Bash(findstr:*)",
       "Bash(taskkill:*)",
       "Bash(git check-ignore:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(tasklist:*)"
     ],
     "mode": "no"
   }
